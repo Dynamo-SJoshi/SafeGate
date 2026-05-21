@@ -1,0 +1,157 @@
+SafeGate Progress Log
+=====================
+
+Last updated:
+2026-05-22 02:06:29 +05:30
+
+Current stage:
+Project scaffold started. Basic backend and frontend skeletons created. Local developer tools are installed and most of the MVP setup is ready.
+
+What has been done so far
+-------------------------
+
+1. Created the SafeGate repository and pushed the README to GitHub.
+2. Created the main project folders:
+   - frontend
+   - backend
+   - workers
+   - analyzers
+   - docs
+   - storage
+   - sandbox
+   - extension
+3. Added a minimal FastAPI backend skeleton.
+4. Added a minimal Next.js frontend skeleton.
+5. Verified most MVP tools on the laptop.
+
+Installed / verified tools
+--------------------------
+
+Working and verified:
+   - Git
+   - Node.js
+   - npm
+   - Python
+   - pip
+   - PostgreSQL
+   - psql
+   - ffprobe
+   - ExifTool
+   - YARA
+   - yarac
+   - ClamAV
+   - freshclam
+
+Available but context-dependent:
+   - Docker Desktop
+   - Redis when started through Docker
+
+Important learnings
+-------------------
+
+1. Git tracks changes locally, GitHub stores them online.
+2. Git workflow for this project:
+   - make a small change
+   - test it
+   - commit it
+   - push it to GitHub
+3. A Python virtual environment (.venv) is a private Python space for SafeGate only.
+4. pip installs Python packages.
+5. When .venv is active, pip installs packages only for this project.
+6. PostgreSQL can be installed on D: while the project lives on C:.
+7. The frontend and backend are separate apps and should be run in separate terminals.
+8. Next.js is the frontend framework currently being used.
+9. FastAPI is the backend framework currently being used.
+10. The small "N" badge in the Next.js app during development is normal.
+
+How to start the backend
+------------------------
+
+Folder:
+   C:\Users\DELL\Downloads\SafeGate
+
+Steps in Command Prompt:
+
+1. Create the virtual environment:
+   python -m venv .venv
+
+2. Activate it:
+   .venv\Scripts\activate
+
+3. Install backend dependencies:
+   pip install -r backend\requirements.txt
+
+4. Start the backend server:
+   uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+
+5. Test the backend:
+   http://127.0.0.1:8000/health
+
+Expected response:
+   {"status":"ok","service":"safegate-api"}
+
+How to start the frontend
+-------------------------
+
+Folder:
+   C:\Users\DELL\Downloads\SafeGate\frontend
+
+Steps in Command Prompt:
+
+1. Install frontend dependencies:
+   npm install
+
+2. Start the frontend dev server:
+   npm run dev
+
+3. Open the frontend in the browser:
+   http://127.0.0.1:3000
+
+How the frontend connects to the backend
+---------------------------------------
+
+1. Browser opens the Next.js frontend on port 3000.
+2. The frontend calls its own route:
+   /api/health
+3. That route calls the FastAPI backend:
+   http://127.0.0.1:8000/health
+4. The frontend shows backend status as online when the backend responds correctly.
+
+Current project code added
+--------------------------
+
+Backend:
+   - backend/app/main.py
+   - backend/app/__init__.py
+   - backend/requirements.txt
+   - backend/README.md
+
+Frontend:
+   - frontend/package.json
+   - frontend/next.config.mjs
+   - frontend/app/layout.jsx
+   - frontend/app/page.jsx
+   - frontend/app/globals.css
+   - frontend/app/api/health/route.js
+   - frontend/README.md
+
+Security / design decisions
+---------------------------
+
+1. Treat all uploads as hostile.
+2. Prefer static analysis before dynamic execution.
+3. Do not run unknown files on the host.
+4. Use temporary data and cleanup later.
+5. Keep the MVP simple before adding sandbox execution and AI summaries.
+
+Next recommended steps
+----------------------
+
+1. Commit and push the frontend scaffold.
+2. Keep the backend running and verify /health.
+3. Add an upload endpoint.
+4. Connect PostgreSQL to store scan jobs and reports.
+5. Add file fingerprinting with magic bytes and metadata checks.
+6. Add static analysis tools for PDFs, Office documents, archives, and media.
+7. Add Redis job processing when background tasks are needed.
+
