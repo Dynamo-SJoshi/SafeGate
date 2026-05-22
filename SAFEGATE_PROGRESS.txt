@@ -58,11 +58,11 @@ Important learnings
 3. A Python virtual environment (.venv) is a private Python space for SafeGate only.
 4. pip installs Python packages.
 5. When .venv is active, pip installs packages only for this project.
-6. PostgreSQL can be installed on D: while the project lives on C:.
+6. PostgreSQL can be installed on D drive while the project lives on C drive.
 7. The frontend and backend are separate apps and should be run in separate terminals.
 8. Next.js is the frontend framework currently being used.
 9. FastAPI is the backend framework currently being used.
-10. The small "N" badge in the Next.js app during development is normal.
+
 
 How to start the backend
 ------------------------
@@ -155,3 +155,16 @@ Next recommended steps
 6. Add static analysis tools for PDFs, Office documents, archives, and media.
 7. Add Redis job processing when background tasks are needed.
 
+
+Steps to Push items in GITHUB
+------------------------------
+
+1.Navigate to your folder:Open your terminal or command prompt.Use the cd (change directory) command to go to the folder where your text file is saved:
+  Bash   cd path/to/your/folder
+2.Stage the file:Tells Git to track this specific file.Add your text file to the staging area. Replace filename.txt with your actual file's name:
+  Bash   git add filename.txt(or any other particular file)
+(Tip: If you want to add every changed file in the folder, use git add . instead).
+3.Commit the change:Saves a local snapshot.Package your staged file into a commit with a brief, descriptive message:
+  Bash   git commit -m "Add my text file"
+4.Push to the repository:Uploads the commit to the remote server.Send your committed file to the remote repository. Assuming your remote is named origin and your primary branch is main:
+  Bash   git push origin main
