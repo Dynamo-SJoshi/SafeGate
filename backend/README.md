@@ -4,7 +4,10 @@ This folder contains the SafeGate API backend.
 
 ## Current status
 
-Minimal FastAPI skeleton with a health check endpoint.
+Minimal FastAPI skeleton with:
+
+- a health check endpoint
+- a file upload endpoint that saves files to a temporary folder and returns metadata
 
 ## Run locally
 
@@ -26,3 +29,8 @@ Health check:
 GET http://127.0.0.1:8000/health
 ```
 
+Upload test:
+
+```text
+POST http://127.0.0.1:8000/upload
+```

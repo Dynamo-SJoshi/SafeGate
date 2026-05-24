@@ -89,6 +89,14 @@ h1 {
   padding: 18px;
 }
 
+.uploadCard {
+  margin-top: 18px;
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  padding: 18px;
+  background: rgba(6, 12, 22, 0.7);
+}
+
 .statusHeader {
   display: flex;
   align-items: center;
@@ -114,6 +122,32 @@ h1 {
 .dot.error {
   background: var(--bad);
   box-shadow: 0 0 0 6px rgba(251, 113, 133, 0.12);
+}
+
+.dot.warn {
+  background: var(--warn);
+  box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.12);
+}
+
+.fileLabel {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+  color: var(--muted);
+}
+
+.fileLabel input[type="file"] {
+  color: var(--muted);
+}
+
+.uploadCard button {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #06101d;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 pre {
@@ -159,4 +193,3 @@ pre {
     grid-template-columns: 1fr;
   }
 }
-
