@@ -32,7 +32,9 @@ CREATE TABLE IF NOT EXISTS uploads (
 UPLOADS_EXTRA_COLUMNS_SQL = """
 ALTER TABLE uploads
     ADD COLUMN IF NOT EXISTS source_url TEXT,
-    ADD COLUMN IF NOT EXISTS source_kind TEXT NOT NULL DEFAULT 'upload';
+    ADD COLUMN IF NOT EXISTS source_kind TEXT NOT NULL DEFAULT 'upload',
+    ADD COLUMN IF NOT EXISTS source_state TEXT NOT NULL DEFAULT 'direct_file',
+    ADD COLUMN IF NOT EXISTS candidate_urls JSONB NOT NULL DEFAULT '[]'::jsonb;
 """
 
 
@@ -77,6 +79,8 @@ def save_upload_record(
     analysis_state: str,
     source_url: str | None = None,
     source_kind: str = "upload",
+    source_state: str = "direct_file",
+    candidate_urls: list[str] | None = None,
 ) -> None:
     claimed_content_type = str(fingerprint["claimed_content_type"])
     detected_content_type = str(fingerprint["detected_content_type"])
@@ -107,7 +111,9 @@ def save_upload_record(
                     fingerprint,
                     analysis_state,
                     source_url,
-                    source_kind
+                    source_kind,
+                    source_state,
+                    candidate_urls
                 )
                 VALUES (
                     %(upload_id)s,
@@ -125,7 +131,9 @@ def save_upload_record(
                     %(fingerprint)s,
                     %(analysis_state)s,
                     %(source_url)s,
-                    %(source_kind)s
+                    %(source_kind)s,
+                    %(source_state)s,
+                    %(candidate_urls)s
                 )
                 ON CONFLICT (upload_id)
                 DO UPDATE SET
@@ -143,7 +151,9 @@ def save_upload_record(
                     fingerprint = EXCLUDED.fingerprint,
                     analysis_state = EXCLUDED.analysis_state,
                     source_url = EXCLUDED.source_url,
-                    source_kind = EXCLUDED.source_kind
+                    source_kind = EXCLUDED.source_kind,
+                    source_state = EXCLUDED.source_state,
+                    candidate_urls = EXCLUDED.candidate_urls
                 """,
                 {
                     "upload_id": upload_id,
@@ -162,5 +172,7 @@ def save_upload_record(
                     "analysis_state": analysis_state,
                     "source_url": source_url,
                     "source_kind": source_kind,
+                    "source_state": source_state,
+                    "candidate_urls": Jsonb(candidate_urls or []),
                 },
             )

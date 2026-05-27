@@ -147,6 +147,44 @@ export default function HomePage() {
           </label>
           <button type="submit">Analyze Link</button>
           <pre>{JSON.stringify(urlResult, null, 2)}</pre>
+          {urlResult?.source_state ? (
+            <div className="fingerprintSummary">
+              <h3>Source summary</h3>
+              <p>
+                Source kind: <strong>{urlResult.source_kind}</strong>
+              </p>
+              <p>
+                Source state: <strong>{urlResult.source_state}</strong>
+              </p>
+              {urlResult.notes?.length ? (
+                <div className="candidateList">
+                  <p>Notes:</p>
+                  <ul>
+                    {urlResult.notes.map((note) => (
+                      <li key={note}>{note}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {urlResult.source_state === "landing_page" ? (
+                <p>This link looks like a webpage. SafeGate found candidate download links below.</p>
+              ) : null}
+              {urlResult.candidate_urls?.length ? (
+                <div className="candidateList">
+                  <p>Candidate links:</p>
+                  <ul>
+                    {urlResult.candidate_urls.map((candidate) => (
+                      <li key={candidate}>
+                        <a href={candidate} target="_blank" rel="noreferrer">
+                          {candidate}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {urlResult?.fingerprint ? (
             <div className="fingerprintSummary">
               <h3>Fingerprint summary</h3>

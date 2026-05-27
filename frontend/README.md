@@ -10,6 +10,7 @@ Minimal Next.js frontend with:
 - a backend health bridge
 - a link analysis form that proxies to the backend URL analysis endpoint
 - a file upload fallback that proxies to the backend upload endpoint
+- landing-page results and candidate download links for HTML-based download sites
 
 ## Run locally
 
@@ -34,6 +35,8 @@ http://127.0.0.1:3000
 ## Upload flow
 
 The frontend sends links to `/api/analyze-url`, which forwards them to the backend at `http://127.0.0.1:8000/analyze-url`.
+
+When the backend reports a landing page, the UI shows candidate download links it found on that page.
 
 ## File upload fallback
 

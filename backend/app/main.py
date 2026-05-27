@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from .database import save_upload_record
 from .fingerprinting import fingerprint_file
-from .url_fetching import fetch_remote_file
+from .url_fetching import fetch_remote_source
 
 app = FastAPI(title="SafeGate API", version="0.1.0")
 
@@ -55,18 +55,21 @@ def analyze_url(payload: UrlAnalyzeRequest):
     upload_id = str(uuid4())
 
     try:
-        remote_path, _, final_url, fetched_content_type = fetch_remote_file(
+        remote_fetch = fetch_remote_source(
             source_url=payload.url,
             upload_id=upload_id,
         )
-        parsed_final_url = urlparse(final_url)
+        parsed_final_url = urlparse(remote_fetch.final_url)
         return _analyze_and_store_file(
             upload_id=upload_id,
-            stored_path=remote_path,
+            stored_path=remote_fetch.stored_path,
             original_filename=Path(parsed_final_url.path).name or "downloaded-file",
-            content_type=fetched_content_type or "application/octet-stream",
+            content_type=remote_fetch.content_type or "application/octet-stream",
             source_kind="url",
-            source_url=final_url,
+            source_url=remote_fetch.final_url,
+            source_state=remote_fetch.fetch_kind,
+            candidate_urls=remote_fetch.candidate_urls,
+            notes=remote_fetch.notes,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -104,6 +107,9 @@ def _analyze_and_store_file(
     content_type: str,
     source_kind: str,
     source_url: str | None = None,
+    source_state: str = "direct_file",
+    candidate_urls: list[str] | None = None,
+    notes: list[str] | None = None,
 ) -> dict[str, object]:
     size_bytes = stored_path.stat().st_size
     sha256 = hashlib.sha256(stored_path.read_bytes()).hexdigest()
@@ -126,6 +132,8 @@ def _analyze_and_store_file(
             analysis_state="pending",
             source_url=source_url,
             source_kind=source_kind,
+            source_state=source_state,
+            candidate_urls=candidate_urls,
         )
     except Exception as exc:
         if stored_path.exists():
@@ -146,5 +154,8 @@ def _analyze_and_store_file(
         "analysis_state": "pending",
         "database_state": "saved",
         "source_kind": source_kind,
+        "source_state": source_state,
         "source_url": source_url,
+        "candidate_urls": candidate_urls or [],
+        "notes": notes or [],
     }

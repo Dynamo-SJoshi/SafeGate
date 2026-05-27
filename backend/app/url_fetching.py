@@ -1,16 +1,31 @@
 from __future__ import annotations
 
+import re
 import tempfile
 import urllib.error
 import urllib.request
+from dataclasses import dataclass, field
+from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from .security import validate_and_normalize_url
 
 MAX_REMOTE_BYTES = 50 * 1024 * 1024
+MAX_LANDING_PAGE_BYTES = 2 * 1024 * 1024
 MAX_REDIRECTS = 3
 REMOTE_TIMEOUT_SECONDS = 15
+
+
+@dataclass(slots=True)
+class RemoteFetchResult:
+    stored_path: Path
+    size_bytes: int
+    final_url: str
+    content_type: str
+    fetch_kind: str
+    candidate_urls: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
 
 class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -18,20 +33,49 @@ class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def fetch_remote_file(source_url: str, upload_id: str) -> tuple[Path, int, str, str]:
+class DownloadLinkExtractor(HTMLParser):
+    def __init__(self, base_url: str):
+        super().__init__()
+        self.base_url = base_url
+        self.candidates: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        attribute_map = {key.lower(): value for key, value in attrs}
+        for attribute_name in ("href", "src", "action"):
+            value = attribute_map.get(attribute_name)
+            if value:
+                self._add_candidate(value)
+
+        if tag.lower() == "meta":
+            http_equiv = attribute_map.get("http-equiv", "").lower()
+            content = attribute_map.get("content", "")
+            if http_equiv == "refresh" and "url=" in content.lower():
+                match = re.search(r"url\s*=\s*(.+)", content, flags=re.IGNORECASE)
+                if match:
+                    self._add_candidate(match.group(1).strip("\"' "))
+
+    def _add_candidate(self, raw_value: str) -> None:
+        resolved = urljoin(self.base_url, raw_value.strip())
+        parsed = urlparse(resolved)
+        if parsed.scheme not in {"http", "https"}:
+            return
+        if resolved not in self.candidates:
+            self.candidates.append(resolved)
+
+
+def fetch_remote_source(source_url: str, upload_id: str) -> RemoteFetchResult:
     normalized_url = validate_and_normalize_url(source_url)
     destination_root = Path(tempfile.gettempdir()) / "safegate" / "remote"
     destination_root.mkdir(parents=True, exist_ok=True)
     destination_path = destination_root / f"{upload_id}.bin"
 
     try:
-        final_url, content_type = _download_with_redirects(
+        result = _download_with_redirects(
             normalized_url=normalized_url,
             destination_path=destination_path,
             redirects_remaining=MAX_REDIRECTS,
         )
-        size_bytes = destination_path.stat().st_size
-        return destination_path, size_bytes, final_url, content_type
+        return result
     except Exception:
         if destination_path.exists():
             destination_path.unlink(missing_ok=True)
@@ -43,7 +87,7 @@ def _download_with_redirects(
     normalized_url: str,
     destination_path: Path,
     redirects_remaining: int,
-) -> tuple[str, str]:
+) -> RemoteFetchResult:
     opener = urllib.request.build_opener(NoRedirectHandler())
     request = urllib.request.Request(
         normalized_url,
@@ -86,20 +130,144 @@ def _download_with_redirects(
                     raise
                 raise ValueError("Remote file returned an invalid Content-Length header.") from exc
 
-        size_bytes = 0
-        with destination_path.open("wb") as buffer:
-            while True:
-                chunk = response.read(1024 * 1024)
-                if not chunk:
-                    break
+        if content_type in {"text/html", "application/xhtml+xml"}:
+            return _download_landing_page(
+                response=response,
+                normalized_url=normalized_url,
+                destination_path=destination_path,
+                content_type=content_type,
+            )
 
-                size_bytes += len(chunk)
-                if size_bytes > MAX_REMOTE_BYTES:
-                    raise ValueError("Remote file exceeds the SafeGate fetch limit.")
+        return _download_file(
+            response=response,
+            normalized_url=normalized_url,
+            destination_path=destination_path,
+            content_type=content_type,
+        )
 
-                buffer.write(chunk)
 
-        if size_bytes == 0:
-            raise ValueError("Remote file was empty.")
+def _download_landing_page(
+    *,
+    response,
+    normalized_url: str,
+    destination_path: Path,
+    content_type: str,
+) -> RemoteFetchResult:
+    size_bytes = 0
+    page_bytes = bytearray()
 
-        return normalized_url, content_type
+    with destination_path.open("wb") as buffer:
+        while True:
+            chunk = response.read(64 * 1024)
+            if not chunk:
+                break
+
+            size_bytes += len(chunk)
+            if size_bytes > MAX_LANDING_PAGE_BYTES:
+                raise ValueError("Landing page exceeds the SafeGate HTML fetch limit.")
+
+            buffer.write(chunk)
+            page_bytes.extend(chunk)
+
+    if size_bytes == 0:
+        raise ValueError("Remote landing page was empty.")
+
+    extractor = DownloadLinkExtractor(base_url=normalized_url)
+    try:
+        extractor.feed(page_bytes.decode("utf-8", errors="ignore"))
+    except Exception:
+        pass
+
+    candidate_urls = _rank_candidate_urls(extractor.candidates, normalized_url)
+    notes = ["landing-page-detected"]
+    if candidate_urls:
+        notes.append("candidate-download-links-found")
+
+    return RemoteFetchResult(
+        stored_path=destination_path,
+        size_bytes=size_bytes,
+        final_url=normalized_url,
+        content_type=content_type,
+        fetch_kind="landing_page",
+        candidate_urls=candidate_urls,
+        notes=notes,
+    )
+
+
+def _download_file(
+    *,
+    response,
+    normalized_url: str,
+    destination_path: Path,
+    content_type: str,
+) -> RemoteFetchResult:
+    size_bytes = 0
+    with destination_path.open("wb") as buffer:
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk:
+                break
+
+            size_bytes += len(chunk)
+            if size_bytes > MAX_REMOTE_BYTES:
+                raise ValueError("Remote file exceeds the SafeGate fetch limit.")
+
+            buffer.write(chunk)
+
+    if size_bytes == 0:
+        raise ValueError("Remote file was empty.")
+
+    return RemoteFetchResult(
+        stored_path=destination_path,
+        size_bytes=size_bytes,
+        final_url=normalized_url,
+        content_type=content_type,
+        fetch_kind="direct_file",
+        notes=["direct-file-detected"],
+    )
+
+
+def _rank_candidate_urls(candidate_urls: list[str], base_url: str) -> list[str]:
+    scored_candidates = []
+    for candidate_url in candidate_urls:
+        score = 0
+        lowered = candidate_url.lower()
+        if looks_like_download_url(candidate_url):
+            score += 3
+        if any(keyword in lowered for keyword in ("download", "dl", "file", "server", "media")):
+            score += 2
+        if candidate_url.startswith(base_url):
+            score += 1
+        scored_candidates.append((score, candidate_url))
+
+    scored_candidates.sort(key=lambda item: item[0], reverse=True)
+    ordered = [candidate_url for score, candidate_url in scored_candidates if score > 0]
+    if not ordered:
+        ordered = candidate_urls
+    return ordered[:10]
+
+
+def looks_like_download_url(url: str) -> bool:
+    lowered = url.lower().split("?", 1)[0].split("#", 1)[0]
+    extensions = (
+        ".mp4",
+        ".mkv",
+        ".mp3",
+        ".pdf",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+        ".zip",
+        ".rar",
+        ".7z",
+        ".docx",
+        ".xlsx",
+        ".pptx",
+        ".exe",
+        ".msi",
+        ".apk",
+        ".iso",
+        ".img",
+    )
+    return lowered.endswith(extensions)

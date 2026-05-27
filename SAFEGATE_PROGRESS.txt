@@ -2,7 +2,7 @@ SafeGate Progress Log
 =====================
 
 Last updated:
-2026-05-27 21:44:26 +05:30
+2026-05-28 00:28:53 +05:30
 
 Current stage:
 Project scaffold started. Basic backend and frontend skeletons created. Local developer tools are installed and most of the MVP setup is ready.
@@ -199,6 +199,21 @@ Why this matters:
 
 - SafeGate can now move toward its real use case: inspecting links before files are downloaded locally.
 - The backend is protected from being tricked into fetching internal or dangerous addresses.
+
+Landing-page detection update
+-----------------------------
+
+Current work:
+
+- Detect when a pasted URL returns HTML instead of a direct file.
+- Extract candidate download links from the landing page HTML.
+- Return the fetch kind (`direct_file` or `landing_page`) to the frontend.
+- Show candidate links in the UI when SafeGate finds them.
+
+Why this matters:
+
+- Many shady download sites use a landing page instead of a direct file link.
+- SafeGate now has the first step needed to handle those sites more intelligently.
 
 
 Steps to Push items in GITHUB

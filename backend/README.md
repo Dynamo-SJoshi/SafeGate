@@ -11,6 +11,7 @@ Minimal FastAPI skeleton with:
 - a basic file fingerprinting step that compares the claimed type against the detected type
 - PostgreSQL persistence for upload metadata
 - a safe URL analysis endpoint with SSRF protection
+- landing-page detection with candidate download-link extraction
 
 ## Run locally
 
@@ -51,3 +52,5 @@ POST http://127.0.0.1:8000/analyze-url
 ```
 
 The backend will create the `uploads` table automatically on startup.
+
+When a URL points to HTML instead of a direct file, the backend now marks it as a landing page and returns candidate download links when it can find them.
