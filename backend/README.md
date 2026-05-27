@@ -8,6 +8,7 @@ Minimal FastAPI skeleton with:
 
 - a health check endpoint
 - a file upload endpoint that saves files to a temporary folder and returns metadata
+- a basic file fingerprinting step that compares the claimed type against the detected type
 
 ## Run locally
 

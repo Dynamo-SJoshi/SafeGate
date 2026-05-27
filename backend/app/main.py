@@ -7,6 +7,8 @@ from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
+from .fingerprinting import fingerprint_file
+
 app = FastAPI(title="SafeGate API", version="0.1.0")
 
 UPLOAD_ROOT = Path(tempfile.gettempdir()) / "safegate" / "uploads"
@@ -53,6 +55,12 @@ async def upload_file(file: UploadFile = File(...)):
     finally:
         await file.close()
 
+    fingerprint = fingerprint_file(
+        file_path=stored_path,
+        claimed_filename=file.filename,
+        claimed_content_type=file.content_type or "application/octet-stream",
+    )
+
     return {
         "status": "received",
         "upload_id": upload_id,
@@ -60,5 +68,6 @@ async def upload_file(file: UploadFile = File(...)):
         "content_type": file.content_type or "application/octet-stream",
         "size_bytes": size_bytes,
         "sha256": sha256.hexdigest(),
+        "fingerprint": fingerprint.to_dict(),
         "analysis_state": "pending",
     }

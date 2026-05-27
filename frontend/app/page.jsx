@@ -105,6 +105,23 @@ export default function HomePage() {
           </label>
           <button type="submit">Upload to SafeGate</button>
           <pre>{JSON.stringify(uploadResult, null, 2)}</pre>
+          {uploadResult?.fingerprint ? (
+            <div className="fingerprintSummary">
+              <h3>Fingerprint summary</h3>
+              <p>
+                Claimed: <strong>{uploadResult.fingerprint.claimed_content_type}</strong>
+              </p>
+              <p>
+                Detected: <strong>{uploadResult.fingerprint.detected_content_type}</strong>
+              </p>
+              <p>
+                Match status: <strong>{uploadResult.fingerprint.match_status}</strong>
+              </p>
+              <p>
+                Confidence: <strong>{uploadResult.fingerprint.confidence}</strong>
+              </p>
+            </div>
+          ) : null}
         </form>
       </section>
 
