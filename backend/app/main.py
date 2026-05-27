@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
+from .database import save_upload_record
 from .fingerprinting import fingerprint_file
 
 app = FastAPI(title="SafeGate API", version="0.1.0")
@@ -61,6 +62,25 @@ async def upload_file(file: UploadFile = File(...)):
         claimed_content_type=file.content_type or "application/octet-stream",
     )
 
+    try:
+        save_upload_record(
+            upload_id=upload_id,
+            original_filename=file.filename,
+            stored_filename=stored_path.name,
+            content_type=file.content_type or "application/octet-stream",
+            size_bytes=size_bytes,
+            sha256=sha256.hexdigest(),
+            fingerprint=fingerprint.to_dict(),
+            analysis_state="pending",
+        )
+    except Exception as exc:
+        if stored_path.exists():
+            stored_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to save upload metadata to PostgreSQL: {exc}",
+        ) from exc
+
     return {
         "status": "received",
         "upload_id": upload_id,
@@ -70,4 +90,5 @@ async def upload_file(file: UploadFile = File(...)):
         "sha256": sha256.hexdigest(),
         "fingerprint": fingerprint.to_dict(),
         "analysis_state": "pending",
+        "database_state": "saved",
     }

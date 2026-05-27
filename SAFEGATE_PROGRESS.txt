@@ -2,7 +2,7 @@ SafeGate Progress Log
 =====================
 
 Last updated:
-2026-05-22 02:06:29 +05:30
+2026-05-27 21:08:09 +05:30
 
 Current stage:
 Project scaffold started. Basic backend and frontend skeletons created. Local developer tools are installed and most of the MVP setup is ready.
@@ -154,6 +154,27 @@ Next recommended steps
 5. Add file fingerprinting with magic bytes and metadata checks.
 6. Add static analysis tools for PDFs, Office documents, archives, and media.
 7. Add Redis job processing when background tasks are needed.
+
+PostgreSQL integration update
+-----------------------------
+
+Current work:
+
+- Added a PostgreSQL persistence layer for upload metadata.
+- Added a table bootstrap step for the `uploads` table.
+- Added a `DATABASE_URL` template in `backend/.env.example`.
+
+Important note:
+
+- The backend now expects a valid PostgreSQL connection string in `DATABASE_URL`.
+- Example format:
+  - `postgresql://postgres:YOUR_PASSWORD@localhost:5432/postgres`
+
+What this enables:
+
+- each upload can be written to PostgreSQL
+- SafeGate can later query upload history and analysis state
+- the app is moving from temporary-only storage toward real persistence
 
 
 Steps to Push items in GITHUB
