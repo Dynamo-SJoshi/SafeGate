@@ -2,7 +2,7 @@ SafeGate Progress Log
 =====================
 
 Last updated:
-2026-05-27 21:08:09 +05:30
+2026-05-27 21:44:26 +05:30
 
 Current stage:
 Project scaffold started. Basic backend and frontend skeletons created. Local developer tools are installed and most of the MVP setup is ready.
@@ -175,6 +175,30 @@ What this enables:
 - each upload can be written to PostgreSQL
 - SafeGate can later query upload history and analysis state
 - the app is moving from temporary-only storage toward real persistence
+
+SSRF-safe URL analysis update
+-----------------------------
+
+Current work:
+
+- Added a backend `/analyze-url` endpoint.
+- Added SSRF protection rules for SafeGate link analysis.
+- Added URL fetching limits, redirect limits, and private-address blocking.
+- Switched the main frontend action to paste a download link first.
+- Kept file upload as a fallback action.
+
+What SSRF protection blocks:
+
+- `localhost`
+- private IP ranges
+- link-local addresses
+- redirect chains that try to move into blocked targets
+- non-http(s) URLs
+
+Why this matters:
+
+- SafeGate can now move toward its real use case: inspecting links before files are downloaded locally.
+- The backend is protected from being tricked into fetching internal or dangerous addresses.
 
 
 Steps to Push items in GITHUB

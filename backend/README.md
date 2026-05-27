@@ -10,6 +10,7 @@ Minimal FastAPI skeleton with:
 - a file upload endpoint that saves files to a temporary folder and returns metadata
 - a basic file fingerprinting step that compares the claimed type against the detected type
 - PostgreSQL persistence for upload metadata
+- a safe URL analysis endpoint with SSRF protection
 
 ## Run locally
 
@@ -41,6 +42,12 @@ Upload test:
 
 ```text
 POST http://127.0.0.1:8000/upload
+```
+
+URL analysis test:
+
+```text
+POST http://127.0.0.1:8000/analyze-url
 ```
 
 The backend will create the `uploads` table automatically on startup.

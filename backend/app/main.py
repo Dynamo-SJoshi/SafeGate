@@ -4,11 +4,14 @@ import hashlib
 import tempfile
 from pathlib import Path
 from uuid import uuid4
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from .database import save_upload_record
 from .fingerprinting import fingerprint_file
+from .url_fetching import fetch_remote_file
 
 app = FastAPI(title="SafeGate API", version="0.1.0")
 
@@ -18,6 +21,10 @@ MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 
 
+class UrlAnalyzeRequest(BaseModel):
+    url: str
+
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "safegate-api"}
@@ -25,16 +32,51 @@ def health_check():
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="Missing filename.")
-
     upload_id = str(uuid4())
-    stored_path = UPLOAD_ROOT / f"{upload_id}-{Path(file.filename).name}"
-    sha256 = hashlib.sha256()
+    try:
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="Missing filename.")
+
+        stored_path = UPLOAD_ROOT / f"{upload_id}-{Path(file.filename).name}"
+        await _save_uploaded_file(file=file, destination=stored_path)
+        return _analyze_and_store_file(
+            upload_id=upload_id,
+            stored_path=stored_path,
+            original_filename=file.filename,
+            content_type=file.content_type or "application/octet-stream",
+            source_kind="upload",
+        )
+    finally:
+        await file.close()
+
+
+@app.post("/analyze-url")
+def analyze_url(payload: UrlAnalyzeRequest):
+    upload_id = str(uuid4())
+
+    try:
+        remote_path, _, final_url, fetched_content_type = fetch_remote_file(
+            source_url=payload.url,
+            upload_id=upload_id,
+        )
+        parsed_final_url = urlparse(final_url)
+        return _analyze_and_store_file(
+            upload_id=upload_id,
+            stored_path=remote_path,
+            original_filename=Path(parsed_final_url.path).name or "downloaded-file",
+            content_type=fetched_content_type or "application/octet-stream",
+            source_kind="url",
+            source_url=final_url,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+async def _save_uploaded_file(*, file: UploadFile, destination: Path) -> None:
     size_bytes = 0
 
     try:
-        with stored_path.open("wb") as buffer:
+        with destination.open("wb") as buffer:
             while True:
                 chunk = await file.read(1024 * 1024)
                 if not chunk:
@@ -47,31 +89,43 @@ async def upload_file(file: UploadFile = File(...)):
                         detail="File exceeds the 50 MB MVP upload limit.",
                     )
 
-                sha256.update(chunk)
                 buffer.write(chunk)
     except HTTPException:
-        if stored_path.exists():
-            stored_path.unlink(missing_ok=True)
+        if destination.exists():
+            destination.unlink(missing_ok=True)
         raise
-    finally:
-        await file.close()
+
+
+def _analyze_and_store_file(
+    *,
+    upload_id: str,
+    stored_path: Path,
+    original_filename: str,
+    content_type: str,
+    source_kind: str,
+    source_url: str | None = None,
+) -> dict[str, object]:
+    size_bytes = stored_path.stat().st_size
+    sha256 = hashlib.sha256(stored_path.read_bytes()).hexdigest()
 
     fingerprint = fingerprint_file(
         file_path=stored_path,
-        claimed_filename=file.filename,
-        claimed_content_type=file.content_type or "application/octet-stream",
+        claimed_filename=original_filename,
+        claimed_content_type=content_type,
     )
 
     try:
         save_upload_record(
             upload_id=upload_id,
-            original_filename=file.filename,
+            original_filename=original_filename,
             stored_filename=stored_path.name,
-            content_type=file.content_type or "application/octet-stream",
+            content_type=content_type,
             size_bytes=size_bytes,
-            sha256=sha256.hexdigest(),
+            sha256=sha256,
             fingerprint=fingerprint.to_dict(),
             analysis_state="pending",
+            source_url=source_url,
+            source_kind=source_kind,
         )
     except Exception as exc:
         if stored_path.exists():
@@ -84,11 +138,13 @@ async def upload_file(file: UploadFile = File(...)):
     return {
         "status": "received",
         "upload_id": upload_id,
-        "filename": file.filename,
-        "content_type": file.content_type or "application/octet-stream",
+        "filename": original_filename,
+        "content_type": content_type,
         "size_bytes": size_bytes,
-        "sha256": sha256.hexdigest(),
+        "sha256": sha256,
         "fingerprint": fingerprint.to_dict(),
         "analysis_state": "pending",
         "database_state": "saved",
+        "source_kind": source_kind,
+        "source_url": source_url,
     }

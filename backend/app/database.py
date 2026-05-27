@@ -29,6 +29,12 @@ CREATE TABLE IF NOT EXISTS uploads (
 );
 """
 
+UPLOADS_EXTRA_COLUMNS_SQL = """
+ALTER TABLE uploads
+    ADD COLUMN IF NOT EXISTS source_url TEXT,
+    ADD COLUMN IF NOT EXISTS source_kind TEXT NOT NULL DEFAULT 'upload';
+"""
+
 
 def get_database_url() -> str:
     database_url = os.getenv("DATABASE_URL")
@@ -56,6 +62,7 @@ def initialize_database() -> None:
     with db_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(UPLOADS_TABLE_SQL)
+            cursor.execute(UPLOADS_EXTRA_COLUMNS_SQL)
 
 
 def save_upload_record(
@@ -68,6 +75,8 @@ def save_upload_record(
     sha256: str,
     fingerprint: dict[str, object],
     analysis_state: str,
+    source_url: str | None = None,
+    source_kind: str = "upload",
 ) -> None:
     claimed_content_type = str(fingerprint["claimed_content_type"])
     detected_content_type = str(fingerprint["detected_content_type"])
@@ -96,7 +105,9 @@ def save_upload_record(
                     match_status,
                     confidence,
                     fingerprint,
-                    analysis_state
+                    analysis_state,
+                    source_url,
+                    source_kind
                 )
                 VALUES (
                     %(upload_id)s,
@@ -112,7 +123,9 @@ def save_upload_record(
                     %(match_status)s,
                     %(confidence)s,
                     %(fingerprint)s,
-                    %(analysis_state)s
+                    %(analysis_state)s,
+                    %(source_url)s,
+                    %(source_kind)s
                 )
                 ON CONFLICT (upload_id)
                 DO UPDATE SET
@@ -128,7 +141,9 @@ def save_upload_record(
                     match_status = EXCLUDED.match_status,
                     confidence = EXCLUDED.confidence,
                     fingerprint = EXCLUDED.fingerprint,
-                    analysis_state = EXCLUDED.analysis_state
+                    analysis_state = EXCLUDED.analysis_state,
+                    source_url = EXCLUDED.source_url,
+                    source_kind = EXCLUDED.source_kind
                 """,
                 {
                     "upload_id": upload_id,
@@ -145,5 +160,7 @@ def save_upload_record(
                     "confidence": confidence,
                     "fingerprint": Jsonb(fingerprint),
                     "analysis_state": analysis_state,
+                    "source_url": source_url,
+                    "source_kind": source_kind,
                 },
             )

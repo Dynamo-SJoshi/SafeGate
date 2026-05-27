@@ -97,6 +97,11 @@ h1 {
   background: rgba(6, 12, 22, 0.7);
 }
 
+.fallbackCard {
+  margin-top: 14px;
+  opacity: 0.95;
+}
+
 .statusHeader {
   display: flex;
   align-items: center;
@@ -138,6 +143,19 @@ h1 {
 
 .fileLabel input[type="file"] {
   color: var(--muted);
+}
+
+.fileLabel input[type="url"] {
+  width: 100%;
+  border: 1px solid rgba(140, 170, 255, 0.18);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(5, 9, 18, 0.9);
+  color: var(--text);
+}
+
+.fileLabel input[type="url"]::placeholder {
+  color: #6f7ea3;
 }
 
 .uploadCard button {
