@@ -24,6 +24,7 @@ class RemoteFetchResult:
     final_url: str
     content_type: str
     fetch_kind: str
+    selected_candidate_url: str | None = None
     candidate_urls: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
@@ -215,6 +216,7 @@ def _download_landing_page(
                 final_url=followed_candidate.final_url,
                 content_type=followed_candidate.content_type,
                 fetch_kind="landing_page_followed",
+                selected_candidate_url=followed_candidate.final_url,
                 candidate_urls=candidate_urls,
                 notes=followed_candidate.notes,
             )
@@ -225,6 +227,7 @@ def _download_landing_page(
         final_url=normalized_url,
         content_type=content_type,
         fetch_kind="landing_page",
+        selected_candidate_url=None,
         candidate_urls=candidate_urls,
         notes=notes,
     )
@@ -291,6 +294,7 @@ def _download_file(
         final_url=normalized_url,
         content_type=content_type,
         fetch_kind="direct_file",
+        selected_candidate_url=None,
         notes=["direct-file-detected"],
     )
 

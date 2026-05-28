@@ -340,4 +340,6 @@ Useful source states you may see:
 - `landing_page`
 - `landing_page_followed`
 
+When `landing_page_followed` appears, the response also includes `selected_candidate_url` so you can see exactly which link SafeGate chose.
+
 This makes SafeGate better suited for download sites that do not expose the actual file directly in the first URL.

@@ -39,15 +39,16 @@ export default function HomePage() {
     };
   }, []);
 
-  async function handleAnalyzeUrl(event) {
-    event.preventDefault();
+  async function runUrlAnalysis(targetUrl) {
+    const normalizedUrl = targetUrl.trim();
 
-    if (!urlInput.trim()) {
+    if (!normalizedUrl) {
       setUrlState("missing-url");
       setUrlResult({ error: "Please paste a download link first." });
       return;
     }
 
+    setUrlInput(normalizedUrl);
     setUrlState("analyzing");
     setUrlResult(null);
 
@@ -57,7 +58,7 @@ export default function HomePage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ url: urlInput }),
+        body: JSON.stringify({ url: normalizedUrl }),
       });
 
       const data = await response.json();
@@ -74,6 +75,15 @@ export default function HomePage() {
       setUrlState("error");
       setUrlResult({ error: "URL analysis failed." });
     }
+  }
+
+  async function handleAnalyzeUrl(event) {
+    event.preventDefault();
+    await runUrlAnalysis(urlInput);
+  }
+
+  async function handleCandidateInspect(candidateUrl) {
+    await runUrlAnalysis(candidateUrl);
   }
 
   async function handleUpload(event) {
@@ -175,14 +185,24 @@ export default function HomePage() {
                   fetched file.
                 </p>
               ) : null}
+              {urlResult.selected_candidate_url ? (
+                <p>
+                  Selected candidate:{" "}
+                  <strong>{urlResult.selected_candidate_url}</strong>
+                </p>
+              ) : null}
               {urlResult.candidate_urls?.length ? (
                 <div className="candidateList">
                   <p>Candidate links:</p>
                   <ul>
                     {urlResult.candidate_urls.map((candidate) => (
                       <li key={candidate}>
+                        <span>{candidate}</span>{" "}
+                        <button type="button" onClick={() => handleCandidateInspect(candidate)}>
+                          Inspect
+                        </button>{" "}
                         <a href={candidate} target="_blank" rel="noreferrer">
-                          {candidate}
+                          Open
                         </a>
                       </li>
                     ))}

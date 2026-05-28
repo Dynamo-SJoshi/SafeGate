@@ -68,6 +68,7 @@ def analyze_url(payload: UrlAnalyzeRequest):
             source_kind="url",
             source_url=remote_fetch.final_url,
             source_state=remote_fetch.fetch_kind,
+            selected_candidate_url=remote_fetch.selected_candidate_url,
             candidate_urls=remote_fetch.candidate_urls,
             notes=remote_fetch.notes,
         )
@@ -108,6 +109,7 @@ def _analyze_and_store_file(
     source_kind: str,
     source_url: str | None = None,
     source_state: str = "direct_file",
+    selected_candidate_url: str | None = None,
     candidate_urls: list[str] | None = None,
     notes: list[str] | None = None,
 ) -> dict[str, object]:
@@ -133,6 +135,7 @@ def _analyze_and_store_file(
             source_url=source_url,
             source_kind=source_kind,
             source_state=source_state,
+            selected_candidate_url=selected_candidate_url,
             candidate_urls=candidate_urls,
         )
     except Exception as exc:
@@ -156,6 +159,7 @@ def _analyze_and_store_file(
         "source_kind": source_kind,
         "source_state": source_state,
         "source_url": source_url,
+        "selected_candidate_url": selected_candidate_url,
         "candidate_urls": candidate_urls or [],
         "notes": notes or [],
     }

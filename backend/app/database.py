@@ -34,6 +34,7 @@ ALTER TABLE uploads
     ADD COLUMN IF NOT EXISTS source_url TEXT,
     ADD COLUMN IF NOT EXISTS source_kind TEXT NOT NULL DEFAULT 'upload',
     ADD COLUMN IF NOT EXISTS source_state TEXT NOT NULL DEFAULT 'direct_file',
+    ADD COLUMN IF NOT EXISTS selected_candidate_url TEXT,
     ADD COLUMN IF NOT EXISTS candidate_urls JSONB NOT NULL DEFAULT '[]'::jsonb;
 """
 
@@ -80,6 +81,7 @@ def save_upload_record(
     source_url: str | None = None,
     source_kind: str = "upload",
     source_state: str = "direct_file",
+    selected_candidate_url: str | None = None,
     candidate_urls: list[str] | None = None,
 ) -> None:
     claimed_content_type = str(fingerprint["claimed_content_type"])
@@ -113,6 +115,7 @@ def save_upload_record(
                     source_url,
                     source_kind,
                     source_state,
+                    selected_candidate_url,
                     candidate_urls
                 )
                 VALUES (
@@ -133,6 +136,7 @@ def save_upload_record(
                     %(source_url)s,
                     %(source_kind)s,
                     %(source_state)s,
+                    %(selected_candidate_url)s,
                     %(candidate_urls)s
                 )
                 ON CONFLICT (upload_id)
@@ -153,6 +157,7 @@ def save_upload_record(
                     source_url = EXCLUDED.source_url,
                     source_kind = EXCLUDED.source_kind,
                     source_state = EXCLUDED.source_state,
+                    selected_candidate_url = EXCLUDED.selected_candidate_url,
                     candidate_urls = EXCLUDED.candidate_urls
                 """,
                 {
@@ -173,6 +178,7 @@ def save_upload_record(
                     "source_url": source_url,
                     "source_kind": source_kind,
                     "source_state": source_state,
+                    "selected_candidate_url": selected_candidate_url,
                     "candidate_urls": Jsonb(candidate_urls or []),
                 },
             )

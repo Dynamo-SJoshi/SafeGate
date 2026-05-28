@@ -229,3 +229,10 @@ Auto-follow landing-page candidates:
 - If the candidate resolves to a real file, SafeGate keeps the candidate file and reports `source_state: landing_page_followed`.
 - The UI can still show the original candidate links so the download flow stays understandable.
 - This makes the link-first workflow more useful for download pages that hide the actual file behind a landing page or redirect chain.
+
+Candidate inspection improvements:
+- Timestamp: `2026-05-28 16:24:45 +05:30`
+- SafeGate now records the exact candidate URL that was selected when a landing page is auto-followed.
+- The frontend candidate list now includes an `Inspect` action so you can re-check any alternative candidate in the app instead of opening it blindly.
+- The UI also shows the selected candidate explicitly when SafeGate auto-follows one.
+- This makes it easier to compare candidates and verify which link SafeGate trusted during analysis.
