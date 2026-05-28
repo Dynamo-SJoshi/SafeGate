@@ -236,3 +236,10 @@ Candidate inspection improvements:
 - The frontend candidate list now includes an `Inspect` action so you can re-check any alternative candidate in the app instead of opening it blindly.
 - The UI also shows the selected candidate explicitly when SafeGate auto-follows one.
 - This makes it easier to compare candidates and verify which link SafeGate trusted during analysis.
+
+Candidate comparison and richer extraction:
+- Timestamp: `2026-05-28 17:19:24 +05:30`
+- Candidate ranking now carries score and reasons so the UI can explain why one link was preferred over another.
+- The frontend has a compare-candidates panel that shows score, reasons, selection status, and recent inspection history.
+- The landing-page extractor was expanded to look at `data-*` download attributes, `onclick` handlers, and inline script text, which helps with JavaScript-heavy download pages.
+- This is a better fit for sites that hide the real file behind buttons or generated links instead of exposing it directly in HTML.

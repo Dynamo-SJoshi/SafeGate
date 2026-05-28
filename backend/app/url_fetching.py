@@ -18,6 +18,13 @@ REMOTE_TIMEOUT_SECONDS = 15
 
 
 @dataclass(slots=True)
+class CandidateLinkInfo:
+    url: str
+    score: int
+    reasons: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class RemoteFetchResult:
     stored_path: Path
     size_bytes: int
@@ -26,6 +33,7 @@ class RemoteFetchResult:
     fetch_kind: str
     selected_candidate_url: str | None = None
     candidate_urls: list[str] = field(default_factory=list)
+    candidate_details: list[CandidateLinkInfo] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
 
@@ -39,13 +47,27 @@ class DownloadLinkExtractor(HTMLParser):
         super().__init__()
         self.base_url = base_url
         self.candidates: list[str] = []
+        self._tag_stack: list[str] = []
 
     def handle_starttag(self, tag, attrs):
+        self._tag_stack.append(tag.lower())
         attribute_map = {key.lower(): value for key, value in attrs}
         for attribute_name in ("href", "src", "action"):
             value = attribute_map.get(attribute_name)
             if value:
                 self._add_candidate(value)
+
+        for attribute_name, value in attribute_map.items():
+            if not value:
+                continue
+            if attribute_name.startswith("data-") and any(
+                keyword in attribute_name for keyword in ("href", "url", "link", "download", "file", "src")
+            ):
+                self._add_candidate(value)
+
+        onclick = attribute_map.get("onclick")
+        if onclick:
+            self._extract_urls_from_text(onclick)
 
         if tag.lower() == "meta":
             http_equiv = attribute_map.get("http-equiv", "").lower()
@@ -55,6 +77,17 @@ class DownloadLinkExtractor(HTMLParser):
                 if match:
                     self._add_candidate(match.group(1).strip("\"' "))
 
+    def handle_endtag(self, tag):
+        tag = tag.lower()
+        if self._tag_stack and self._tag_stack[-1] == tag:
+            self._tag_stack.pop()
+        elif tag in self._tag_stack:
+            self._tag_stack.remove(tag)
+
+    def handle_data(self, data):
+        if self._tag_stack and self._tag_stack[-1] == "script":
+            self._extract_urls_from_text(data)
+
     def _add_candidate(self, raw_value: str) -> None:
         resolved = urljoin(self.base_url, raw_value.strip())
         parsed = urlparse(resolved)
@@ -62,6 +95,16 @@ class DownloadLinkExtractor(HTMLParser):
             return
         if resolved not in self.candidates:
             self.candidates.append(resolved)
+
+    def _extract_urls_from_text(self, text: str) -> None:
+        for match in re.finditer(r"""(?ix)
+            (?:
+                https?://[^\s"'<>\\)]+
+                |
+                /[^\s"'<>\\)]+
+            )
+        """, text):
+            self._add_candidate(match.group(0))
 
 
 def fetch_remote_source(source_url: str, upload_id: str) -> RemoteFetchResult:
@@ -194,31 +237,35 @@ def _download_landing_page(
     except Exception:
         pass
 
-    candidate_urls = _rank_candidate_urls(extractor.candidates, normalized_url)
+    candidate_details = _rank_candidate_urls(extractor.candidates, normalized_url)
+    candidate_urls = [candidate.url for candidate in candidate_details]
     notes = ["landing-page-detected"]
     if candidate_urls:
         notes.append("candidate-download-links-found")
 
     if allow_candidate_follow and candidate_urls:
         followed_candidate = _attempt_best_candidate_download(
-            candidate_urls=candidate_urls,
+            candidate_details=candidate_details,
             destination_root=destination_root,
             upload_id=upload_id,
             redirects_remaining=MAX_REDIRECTS,
         )
         if followed_candidate is not None:
+            candidate_result, selected_candidate_url = followed_candidate
             destination_path.unlink(missing_ok=True)
-            followed_candidate.notes = notes + ["candidate-download-link-followed"] + followed_candidate.notes
-            followed_candidate.candidate_urls = candidate_urls
+            candidate_result.notes = notes + ["candidate-download-link-followed"] + candidate_result.notes
+            candidate_result.candidate_urls = candidate_urls
+            candidate_result.candidate_details = candidate_details
             return RemoteFetchResult(
-                stored_path=followed_candidate.stored_path,
-                size_bytes=followed_candidate.size_bytes,
-                final_url=followed_candidate.final_url,
-                content_type=followed_candidate.content_type,
+                stored_path=candidate_result.stored_path,
+                size_bytes=candidate_result.size_bytes,
+                final_url=candidate_result.final_url,
+                content_type=candidate_result.content_type,
                 fetch_kind="landing_page_followed",
-                selected_candidate_url=followed_candidate.final_url,
+                selected_candidate_url=selected_candidate_url,
                 candidate_urls=candidate_urls,
-                notes=followed_candidate.notes,
+                candidate_details=candidate_details,
+                notes=candidate_result.notes,
             )
 
     return RemoteFetchResult(
@@ -229,18 +276,20 @@ def _download_landing_page(
         fetch_kind="landing_page",
         selected_candidate_url=None,
         candidate_urls=candidate_urls,
+        candidate_details=candidate_details,
         notes=notes,
     )
 
 
 def _attempt_best_candidate_download(
     *,
-    candidate_urls: list[str],
+    candidate_details: list[CandidateLinkInfo],
     destination_root: Path,
     upload_id: str,
     redirects_remaining: int,
-) -> RemoteFetchResult | None:
-    for index, candidate_url in enumerate(candidate_urls):
+) -> tuple[RemoteFetchResult, str] | None:
+    for index, candidate in enumerate(candidate_details):
+        candidate_url = candidate.url
         candidate_destination = destination_root / f"{upload_id}-candidate-{index}.bin"
         try:
             candidate_result = _download_with_redirects(
@@ -257,7 +306,7 @@ def _attempt_best_candidate_download(
             continue
 
         if candidate_result.fetch_kind == "direct_file":
-            return candidate_result
+            return candidate_result, candidate_url
 
         if candidate_destination.exists():
             candidate_destination.unlink(missing_ok=True)
@@ -299,23 +348,33 @@ def _download_file(
     )
 
 
-def _rank_candidate_urls(candidate_urls: list[str], base_url: str) -> list[str]:
-    scored_candidates = []
+def _rank_candidate_urls(candidate_urls: list[str], base_url: str) -> list[CandidateLinkInfo]:
+    scored_candidates: list[CandidateLinkInfo] = []
     for candidate_url in candidate_urls:
         score = 0
+        reasons: list[str] = []
         lowered = candidate_url.lower()
         if looks_like_download_url(candidate_url):
             score += 3
+            reasons.append("download-extension")
         if any(keyword in lowered for keyword in ("download", "dl", "file", "server", "media")):
             score += 2
+            reasons.append("download-keyword")
         if candidate_url.startswith(base_url):
             score += 1
-        scored_candidates.append((score, candidate_url))
+            reasons.append("same-base-url")
+        if any(keyword in lowered for keyword in ("play", "stream", "watch")):
+            score -= 1
+            reasons.append("streaming-language")
+        if any(keyword in lowered for keyword in ("html", "htm", "php", "asp", "aspx")) and not looks_like_download_url(candidate_url):
+            score -= 1
+            reasons.append("page-like-url")
+        scored_candidates.append(CandidateLinkInfo(url=candidate_url, score=score, reasons=reasons))
 
-    scored_candidates.sort(key=lambda item: item[0], reverse=True)
-    ordered = [candidate_url for score, candidate_url in scored_candidates if score > 0]
+    scored_candidates.sort(key=lambda item: (item.score, len(item.reasons), item.url), reverse=True)
+    ordered = [candidate for candidate in scored_candidates if candidate.score > 0]
     if not ordered:
-        ordered = candidate_urls
+        ordered = scored_candidates
     return ordered[:10]
 
 

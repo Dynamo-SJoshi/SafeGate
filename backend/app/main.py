@@ -70,6 +70,10 @@ def analyze_url(payload: UrlAnalyzeRequest):
             source_state=remote_fetch.fetch_kind,
             selected_candidate_url=remote_fetch.selected_candidate_url,
             candidate_urls=remote_fetch.candidate_urls,
+            candidate_details=[
+                {"url": candidate.url, "score": candidate.score, "reasons": candidate.reasons}
+                for candidate in remote_fetch.candidate_details
+            ],
             notes=remote_fetch.notes,
         )
     except ValueError as exc:
@@ -111,6 +115,7 @@ def _analyze_and_store_file(
     source_state: str = "direct_file",
     selected_candidate_url: str | None = None,
     candidate_urls: list[str] | None = None,
+    candidate_details: list[dict[str, object]] | None = None,
     notes: list[str] | None = None,
 ) -> dict[str, object]:
     size_bytes = stored_path.stat().st_size
@@ -161,5 +166,6 @@ def _analyze_and_store_file(
         "source_url": source_url,
         "selected_candidate_url": selected_candidate_url,
         "candidate_urls": candidate_urls or [],
+        "candidate_details": candidate_details or [],
         "notes": notes or [],
     }

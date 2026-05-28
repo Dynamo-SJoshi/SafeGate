@@ -206,6 +206,84 @@ h1 {
   text-decoration: underline;
 }
 
+.candidateCompareTable {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.candidateCompareHead,
+.candidateCompareRow {
+  display: grid;
+  grid-template-columns: 0.5fr 2.4fr 0.6fr 1.3fr 0.8fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.candidateCompareHead {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(140, 170, 255, 0.16);
+}
+
+.candidateCompareRow {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(140, 170, 255, 0.08);
+}
+
+.candidateUrlCell {
+  word-break: break-all;
+}
+
+.candidateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.candidateActions button,
+.candidateActions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.candidateActions button {
+  border: 1px solid rgba(110, 231, 255, 0.22);
+  background: rgba(110, 231, 255, 0.1);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.candidateActions a {
+  border: 1px solid rgba(124, 155, 255, 0.22);
+  background: rgba(124, 155, 255, 0.1);
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.candidateHistory {
+  margin-top: 14px;
+}
+
+.candidateHistory ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.candidateHistory li {
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+
 pre {
   margin: 0;
   overflow-x: auto;
@@ -246,6 +324,11 @@ pre {
   }
 
   .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .candidateCompareHead,
+  .candidateCompareRow {
     grid-template-columns: 1fr;
   }
 }

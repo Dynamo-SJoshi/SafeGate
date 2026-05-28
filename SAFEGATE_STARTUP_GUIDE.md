@@ -342,4 +342,6 @@ Useful source states you may see:
 
 When `landing_page_followed` appears, the response also includes `selected_candidate_url` so you can see exactly which link SafeGate chose.
 
+If the page exposes multiple candidates, SafeGate now also returns candidate scores and reasons so you can compare alternatives in the UI.
+
 This makes SafeGate better suited for download sites that do not expose the actual file directly in the first URL.

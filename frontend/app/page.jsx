@@ -8,6 +8,7 @@ export default function HomePage() {
   const [urlInput, setUrlInput] = useState("");
   const [urlState, setUrlState] = useState("idle");
   const [urlResult, setUrlResult] = useState(null);
+  const [analysisHistory, setAnalysisHistory] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadState, setUploadState] = useState("idle");
   const [uploadResult, setUploadResult] = useState(null);
@@ -71,6 +72,15 @@ export default function HomePage() {
 
       setUrlState("done");
       setUrlResult(data);
+      setAnalysisHistory((previousHistory) => {
+        const nextEntry = {
+          inspected_url: normalizedUrl,
+          analyzed_at: new Date().toISOString(),
+          ...data,
+        };
+        const deduped = previousHistory.filter((entry) => entry.inspected_url !== normalizedUrl);
+        return [nextEntry, ...deduped].slice(0, 8);
+      });
     } catch (error) {
       setUrlState("error");
       setUrlResult({ error: "URL analysis failed." });
@@ -84,6 +94,10 @@ export default function HomePage() {
 
   async function handleCandidateInspect(candidateUrl) {
     await runUrlAnalysis(candidateUrl);
+  }
+
+  function findCandidateAnalysis(candidateUrl) {
+    return analysisHistory.find((entry) => entry.inspected_url === candidateUrl);
   }
 
   async function handleUpload(event) {
@@ -204,6 +218,62 @@ export default function HomePage() {
                         <a href={candidate} target="_blank" rel="noreferrer">
                           Open
                         </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {urlResult?.candidate_details?.length ? (
+            <div className="fingerprintSummary">
+              <h3>Compare candidates</h3>
+              <p>Inspect each candidate and compare scores, reasons, and analysis results.</p>
+              <div className="candidateCompareTable">
+                <div className="candidateCompareHead">
+                  <span>#</span>
+                  <span>Candidate</span>
+                  <span>Score</span>
+                  <span>Reasons</span>
+                  <span>Status</span>
+                  <span>Actions</span>
+                </div>
+                {urlResult.candidate_details.map((candidate, index) => {
+                  const inspectedCandidate = findCandidateAnalysis(candidate.url);
+                  const isSelectedCandidate = urlResult.selected_candidate_url === candidate.url;
+                  return (
+                    <div className="candidateCompareRow" key={candidate.url}>
+                      <span>{index + 1}</span>
+                      <span className="candidateUrlCell">{candidate.url}</span>
+                      <span>{candidate.score}</span>
+                      <span>{candidate.reasons?.length ? candidate.reasons.join(", ") : "none"}</span>
+                      <span>
+                        {isSelectedCandidate ? "selected" : inspectedCandidate ? "inspected" : "pending"}
+                      </span>
+                      <span className="candidateActions">
+                        <button type="button" onClick={() => handleCandidateInspect(candidate.url)}>
+                          Inspect
+                        </button>{" "}
+                        <a href={candidate.url} target="_blank" rel="noreferrer">
+                          Open
+                        </a>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {analysisHistory.length ? (
+                <div className="candidateHistory">
+                  <p>Recent inspections</p>
+                  <ul>
+                    {analysisHistory.map((entry) => (
+                      <li key={`${entry.inspected_url}-${entry.analyzed_at}`}>
+                        <strong>{entry.inspected_url}</strong>
+                        <span>
+                          {" "}
+                          - {entry.source_state} - {entry.fingerprint?.match_status ?? "n/a"} -{" "}
+                          {entry.fingerprint?.detected_content_type ?? "unknown"}
+                        </span>
                       </li>
                     ))}
                   </ul>
