@@ -169,6 +169,12 @@ export default function HomePage() {
               {urlResult.source_state === "landing_page" ? (
                 <p>This link looks like a webpage. SafeGate found candidate download links below.</p>
               ) : null}
+              {urlResult.source_state === "landing_page_followed" ? (
+                <p>
+                  SafeGate found a landing page, followed the best candidate download link, and analyzed the
+                  fetched file.
+                </p>
+              ) : null}
               {urlResult.candidate_urls?.length ? (
                 <div className="candidateList">
                   <p>Candidate links:</p>

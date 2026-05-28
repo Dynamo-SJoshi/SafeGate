@@ -74,6 +74,9 @@ def fetch_remote_source(source_url: str, upload_id: str) -> RemoteFetchResult:
             normalized_url=normalized_url,
             destination_path=destination_path,
             redirects_remaining=MAX_REDIRECTS,
+            destination_root=destination_root,
+            upload_id=upload_id,
+            allow_candidate_follow=True,
         )
         return result
     except Exception:
@@ -87,6 +90,9 @@ def _download_with_redirects(
     normalized_url: str,
     destination_path: Path,
     redirects_remaining: int,
+    destination_root: Path,
+    upload_id: str,
+    allow_candidate_follow: bool,
 ) -> RemoteFetchResult:
     opener = urllib.request.build_opener(NoRedirectHandler())
     request = urllib.request.Request(
@@ -114,6 +120,9 @@ def _download_with_redirects(
                 normalized_url=validate_and_normalize_url(next_url),
                 destination_path=destination_path,
                 redirects_remaining=redirects_remaining - 1,
+                destination_root=destination_root,
+                upload_id=upload_id,
+                allow_candidate_follow=allow_candidate_follow,
             )
 
         raise ValueError(f"Remote fetch failed with HTTP {exc.code}.") from exc
@@ -136,6 +145,9 @@ def _download_with_redirects(
                 normalized_url=normalized_url,
                 destination_path=destination_path,
                 content_type=content_type,
+                destination_root=destination_root,
+                upload_id=upload_id,
+                allow_candidate_follow=allow_candidate_follow,
             )
 
         return _download_file(
@@ -152,6 +164,9 @@ def _download_landing_page(
     normalized_url: str,
     destination_path: Path,
     content_type: str,
+    destination_root: Path,
+    upload_id: str,
+    allow_candidate_follow: bool,
 ) -> RemoteFetchResult:
     size_bytes = 0
     page_bytes = bytearray()
@@ -183,6 +198,27 @@ def _download_landing_page(
     if candidate_urls:
         notes.append("candidate-download-links-found")
 
+    if allow_candidate_follow and candidate_urls:
+        followed_candidate = _attempt_best_candidate_download(
+            candidate_urls=candidate_urls,
+            destination_root=destination_root,
+            upload_id=upload_id,
+            redirects_remaining=MAX_REDIRECTS,
+        )
+        if followed_candidate is not None:
+            destination_path.unlink(missing_ok=True)
+            followed_candidate.notes = notes + ["candidate-download-link-followed"] + followed_candidate.notes
+            followed_candidate.candidate_urls = candidate_urls
+            return RemoteFetchResult(
+                stored_path=followed_candidate.stored_path,
+                size_bytes=followed_candidate.size_bytes,
+                final_url=followed_candidate.final_url,
+                content_type=followed_candidate.content_type,
+                fetch_kind="landing_page_followed",
+                candidate_urls=candidate_urls,
+                notes=followed_candidate.notes,
+            )
+
     return RemoteFetchResult(
         stored_path=destination_path,
         size_bytes=size_bytes,
@@ -192,6 +228,38 @@ def _download_landing_page(
         candidate_urls=candidate_urls,
         notes=notes,
     )
+
+
+def _attempt_best_candidate_download(
+    *,
+    candidate_urls: list[str],
+    destination_root: Path,
+    upload_id: str,
+    redirects_remaining: int,
+) -> RemoteFetchResult | None:
+    for index, candidate_url in enumerate(candidate_urls):
+        candidate_destination = destination_root / f"{upload_id}-candidate-{index}.bin"
+        try:
+            candidate_result = _download_with_redirects(
+                normalized_url=validate_and_normalize_url(candidate_url),
+                destination_path=candidate_destination,
+                redirects_remaining=redirects_remaining,
+                destination_root=destination_root,
+                upload_id=upload_id,
+                allow_candidate_follow=False,
+            )
+        except Exception:
+            if candidate_destination.exists():
+                candidate_destination.unlink(missing_ok=True)
+            continue
+
+        if candidate_result.fetch_kind == "direct_file":
+            return candidate_result
+
+        if candidate_destination.exists():
+            candidate_destination.unlink(missing_ok=True)
+
+    return None
 
 
 def _download_file(

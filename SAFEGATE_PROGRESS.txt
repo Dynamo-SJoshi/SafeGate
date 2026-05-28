@@ -1,186 +1,137 @@
 SafeGate Progress Log
 =====================
 
-Last updated:
-2026-05-28 00:28:53 +05:30
+This file is ordered from older updates to newer updates.
 
-Current stage:
-Project scaffold started. Basic backend and frontend skeletons created. Local developer tools are installed and most of the MVP setup is ready.
-
-What has been done so far
--------------------------
-
-1. Created the SafeGate repository and pushed the README to GitHub.
-2. Created the main project folders:
-   - frontend
-   - backend
-   - workers
-   - analyzers
-   - docs
-   - storage
-   - sandbox
-   - extension
-3. Added a minimal FastAPI backend skeleton.
-4. Added a minimal Next.js frontend skeleton.
-5. Verified most MVP tools on the laptop.
-
-Installed / verified tools
+2026-05-22 02:06:29 +05:30
 --------------------------
 
-Working and verified:
-   - Git
-   - Node.js
-   - npm
-   - Python
-   - pip
-   - PostgreSQL
-   - psql
-   - ffprobe
-   - ExifTool
-   - YARA
-   - yarac
-   - ClamAV
-   - freshclam
+Project stage:
+- Project scaffold started.
+- Basic backend and frontend skeletons were created.
+- Local developer tools were installed and most of the MVP setup was ready.
 
-Available but context-dependent:
-   - Docker Desktop
-   - Redis when started through Docker
+What was done:
+- Created the SafeGate repository and pushed the README to GitHub.
+- Created the main project folders:
+  - frontend
+  - backend
+  - workers
+  - analyzers
+  - docs
+  - storage
+  - sandbox
+  - extension
+- Added a minimal FastAPI backend skeleton.
+- Added a minimal Next.js frontend skeleton.
+- Verified most MVP tools on the laptop.
 
-Important learnings
--------------------
+Installed / verified tools:
+- Git
+- Node.js
+- npm
+- Python
+- pip
+- PostgreSQL
+- psql
+- ffprobe
+- ExifTool
+- YARA
+- yarac
+- ClamAV
+- freshclam
+- Docker Desktop
+- Redis when started through Docker
 
-1. Git tracks changes locally, GitHub stores them online.
-2. Git workflow for this project:
-   - make a small change
-   - test it
-   - commit it
-   - push it to GitHub
-3. A Python virtual environment (.venv) is a private Python space for SafeGate only.
-4. pip installs Python packages.
-5. When .venv is active, pip installs packages only for this project.
-6. PostgreSQL can be installed on D drive while the project lives on C drive.
-7. The frontend and backend are separate apps and should be run in separate terminals.
-8. Next.js is the frontend framework currently being used.
-9. FastAPI is the backend framework currently being used.
+Important learnings:
+- Git tracks changes locally, GitHub stores them online.
+- Git workflow for this project:
+  - make a small change
+  - test it
+  - commit it
+  - push it to GitHub
+- A Python virtual environment (.venv) is a private Python space for SafeGate only.
+- pip installs Python packages.
+- When .venv is active, pip installs packages only for this project.
+- PostgreSQL can be installed on D drive while the project lives on C drive.
+- The frontend and backend are separate apps and should be run in separate terminals.
+- Next.js is the frontend framework currently being used.
+- FastAPI is the backend framework currently being used.
 
+How to start the backend:
+- Folder: `C:\Users\DELL\Downloads\SafeGate`
+- Create the virtual environment:
+  - `python -m venv .venv`
+- Activate it:
+  - `.venv\Scripts\activate`
+- Install backend dependencies:
+  - `pip install -r backend\requirements.txt`
+- Start the backend server:
+  - `uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000`
+- Test the backend:
+  - `http://127.0.0.1:8000/health`
 
-How to start the backend
-------------------------
+How to start the frontend:
+- Folder: `C:\Users\DELL\Downloads\SafeGate\frontend`
+- Install frontend dependencies:
+  - `npm install`
+- Start the frontend dev server:
+  - `npm run dev`
+- Open the frontend in the browser:
+  - `http://127.0.0.1:3000`
 
-Folder:
-   C:\Users\DELL\Downloads\SafeGate
+How the frontend connects to the backend:
+- Browser opens the Next.js frontend on port 3000.
+- The frontend calls its own route:
+  - `/api/health`
+- That route calls the FastAPI backend:
+  - `http://127.0.0.1:8000/health`
+- The frontend shows backend status as online when the backend responds correctly.
 
-Steps in Command Prompt:
+Current project code added at this stage:
+- Backend:
+  - `backend/app/main.py`
+  - `backend/app/__init__.py`
+  - `backend/requirements.txt`
+  - `backend/README.md`
+- Frontend:
+  - `frontend/package.json`
+  - `frontend/next.config.mjs`
+  - `frontend/app/layout.jsx`
+  - `frontend/app/page.jsx`
+  - `frontend/app/globals.css`
+  - `frontend/app/api/health/route.js`
+  - `frontend/README.md`
 
-1. Create the virtual environment:
-   python -m venv .venv
+Security / design decisions:
+- Treat all uploads as hostile.
+- Prefer static analysis before dynamic execution.
+- Do not run unknown files on the host.
+- Use temporary data and cleanup later.
+- Keep the MVP simple before adding sandbox execution and AI summaries.
 
-2. Activate it:
-   .venv\Scripts\activate
-
-3. Install backend dependencies:
-   pip install -r backend\requirements.txt
-
-4. Start the backend server:
-   uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
-
-5. Test the backend:
-   http://127.0.0.1:8000/health
-
-Expected response:
-   {"status":"ok","service":"safegate-api"}
-
-How to start the frontend
--------------------------
-
-Folder:
-   C:\Users\DELL\Downloads\SafeGate\frontend
-
-Steps in Command Prompt:
-
-1. Install frontend dependencies:
-   npm install
-
-2. Start the frontend dev server:
-   npm run dev
-
-3. Open the frontend in the browser:
-   http://127.0.0.1:3000
-
-How the frontend connects to the backend
----------------------------------------
-
-1. Browser opens the Next.js frontend on port 3000.
-2. The frontend calls its own route:
-   /api/health
-3. That route calls the FastAPI backend:
-   http://127.0.0.1:8000/health
-4. The frontend shows backend status as online when the backend responds correctly.
-
-Current project code added
+2026-05-27 21:08:09 +05:30
 --------------------------
 
-Backend:
-   - backend/app/main.py
-   - backend/app/__init__.py
-   - backend/requirements.txt
-   - backend/README.md
-
-Frontend:
-   - frontend/package.json
-   - frontend/next.config.mjs
-   - frontend/app/layout.jsx
-   - frontend/app/page.jsx
-   - frontend/app/globals.css
-   - frontend/app/api/health/route.js
-   - frontend/README.md
-
-Security / design decisions
----------------------------
-
-1. Treat all uploads as hostile.
-2. Prefer static analysis before dynamic execution.
-3. Do not run unknown files on the host.
-4. Use temporary data and cleanup later.
-5. Keep the MVP simple before adding sandbox execution and AI summaries.
-
-Next recommended steps
-----------------------
-
-1. Commit and push the frontend scaffold.
-2. Keep the backend running and verify /health.
-3. Add an upload endpoint.
-4. Connect PostgreSQL to store scan jobs and reports.
-5. Add file fingerprinting with magic bytes and metadata checks.
-6. Add static analysis tools for PDFs, Office documents, archives, and media.
-7. Add Redis job processing when background tasks are needed.
-
-PostgreSQL integration update
------------------------------
-
-Current work:
-
+PostgreSQL integration update:
 - Added a PostgreSQL persistence layer for upload metadata.
 - Added a table bootstrap step for the `uploads` table.
 - Added a `DATABASE_URL` template in `backend/.env.example`.
 
 Important note:
-
 - The backend now expects a valid PostgreSQL connection string in `DATABASE_URL`.
 - Example format:
   - `postgresql://postgres:YOUR_PASSWORD@localhost:5432/postgres`
 
 What this enables:
+- Each upload can be written to PostgreSQL.
+- SafeGate can later query upload history and analysis state.
+- The app is moving from temporary-only storage toward real persistence.
 
-- each upload can be written to PostgreSQL
-- SafeGate can later query upload history and analysis state
-- the app is moving from temporary-only storage toward real persistence
+2026-05-27 21:44:26 +05:30
+--------------------------
 
-SSRF-safe URL analysis update
------------------------------
-
-Current work:
-
+SSRF-safe URL analysis update:
 - Added a backend `/analyze-url` endpoint.
 - Added SSRF protection rules for SafeGate link analysis.
 - Added URL fetching limits, redirect limits, and private-address blocking.
@@ -188,7 +139,6 @@ Current work:
 - Kept file upload as a fallback action.
 
 What SSRF protection blocks:
-
 - `localhost`
 - private IP ranges
 - link-local addresses
@@ -196,35 +146,86 @@ What SSRF protection blocks:
 - non-http(s) URLs
 
 Why this matters:
-
 - SafeGate can now move toward its real use case: inspecting links before files are downloaded locally.
 - The backend is protected from being tricked into fetching internal or dangerous addresses.
 
-Landing-page detection update
------------------------------
+2026-05-28 00:28:53 +05:30
+--------------------------
 
-Current work:
-
+Landing-page detection update:
 - Detect when a pasted URL returns HTML instead of a direct file.
 - Extract candidate download links from the landing page HTML.
 - Return the fetch kind (`direct_file` or `landing_page`) to the frontend.
 - Show candidate links in the UI when SafeGate finds them.
 
 Why this matters:
-
 - Many shady download sites use a landing page instead of a direct file link.
 - SafeGate now has the first step needed to handle those sites more intelligently.
 
+2026-05-28 00:41:36 +05:30
+--------------------------
 
-Steps to Push items in GITHUB
-------------------------------
+Current working notes:
+- Last update timestamp: `2026-05-28 00:41:36 +05:30`
+- SSRF-safe URL analysis was added.
+- The backend `/analyze-url` endpoint exists.
+- The frontend uses a link-first workflow.
+- Landing-page detection is active.
+- Candidate download-link extraction is active.
 
-1.Navigate to your folder:Open your terminal or command prompt.Use the cd (change directory) command to go to the folder where your text file is saved:
-  Bash   cd path/to/your/folder
-2.Stage the file:Tells Git to track this specific file.Add your text file to the staging area. Replace filename.txt with your actual file's name:
-  Bash   git add filename.txt(or any other particular file)
-(Tip: If you want to add every changed file in the folder, use git add . instead).
-3.Commit the change:Saves a local snapshot.Package your staged file into a commit with a brief, descriptive message:
-  Bash   git commit -m "Add my text file"
-4.Push to the repository:Uploads the commit to the remote server.Send your committed file to the remote repository. Assuming your remote is named origin and your primary branch is main:
-  Bash   git push origin main
+What this means:
+- SafeGate can distinguish direct file responses from HTML landing pages.
+- The UI can show candidate links when a page exposes them.
+- The project is moving closer to handling real download-site behavior instead of only manual file uploads.
+
+Open follow-up ideas:
+- Improve landing-page extraction for JavaScript-heavy sites.
+- Automatically follow the best candidate link when safe.
+- Add better file-size strategy for very large files.
+- Keep tightening analysis so the system stays safe and understandable.
+
+How to run PostgreSQL commands:
+1. Open Command Prompt.
+2. Connect to PostgreSQL:
+   - `psql -U postgres -d postgres`
+3. Enter the password when prompted. The password input will not be shown on screen, which is normal.
+4. Useful commands inside `psql`:
+   - `\dt`
+   - `SELECT upload_id, original_filename, size_bytes, match_status, created_at FROM uploads ORDER BY created_at DESC LIMIT 5;`
+   - `\q`
+5. Exit `psql` with:
+   - `\q`
+
+Notes:
+- `\dt` lists tables in the connected database.
+- The `SELECT` query shows recent SafeGate upload records.
+- `\q` quits the PostgreSQL shell.
+
+How to push items to GitHub:
+1. Go to the SafeGate folder.
+2. Stage the file:
+   - `git add SAFEGATE_PROGRESS.txt`
+3. Commit the change:
+   - `git commit -m "docs: update progress log"`
+4. Push to the repository:
+   - `git push origin main`
+
+Startup note for PostgreSQL-backed analysis:
+- Timestamp: `2026-05-28 14:28:29 +05:30`
+- The backend must have `DATABASE_URL` set in the same terminal session before starting `uvicorn`.
+- Example:
+  - `set DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/postgres`
+- If the backend is started before setting `DATABASE_URL`, URL analysis can fail when it tries to save metadata.
+- The safe startup sequence is:
+  1. open Command Prompt
+  2. `cd C:\Users\DELL\Downloads\SafeGate`
+  3. `.venv\Scripts\activate`
+  4. `set DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/postgres`
+  5. start the backend with `uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000`
+
+Auto-follow landing-page candidates:
+- Timestamp: `2026-05-28 16:15:13 +05:30`
+- SafeGate now tries the best-ranked candidate download link automatically when a fetched URL is identified as a landing page.
+- If the candidate resolves to a real file, SafeGate keeps the candidate file and reports `source_state: landing_page_followed`.
+- The UI can still show the original candidate links so the download flow stays understandable.
+- This makes the link-first workflow more useful for download pages that hide the actual file behind a landing page or redirect chain.
