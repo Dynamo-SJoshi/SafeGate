@@ -6,23 +6,31 @@ from pathlib import Path
 from uuid import uuid4
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from .database import save_upload_record
+from .database import get_upload_record, save_upload_record
 from .fingerprinting import fingerprint_file
+from .previewing import build_preview
 from .url_fetching import fetch_remote_source
 
 app = FastAPI(title="SafeGate API", version="0.1.0")
 
 UPLOAD_ROOT = Path(tempfile.gettempdir()) / "safegate" / "uploads"
+REMOTE_ROOT = Path(tempfile.gettempdir()) / "safegate" / "remote"
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+REMOTE_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 class UrlAnalyzeRequest(BaseModel):
     url: str
+
+
+class PreviewRequest(BaseModel):
+    upload_id: str
 
 
 @app.get("/health")
@@ -80,6 +88,60 @@ def analyze_url(payload: UrlAnalyzeRequest):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.post("/preview")
+def preview_upload(payload: PreviewRequest, request: Request):
+    record = get_upload_record(payload.upload_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Upload record not found.")
+
+    stored_path = _resolve_stored_path(record)
+    if not stored_path.exists():
+        raise HTTPException(status_code=404, detail="Stored file not found.")
+
+    preview = build_preview(
+        upload_id=str(record["upload_id"]),
+        stored_path=stored_path,
+        original_filename=str(record["original_filename"]),
+        detected_content_type=str(record["detected_content_type"]),
+        fingerprint=dict(record["fingerprint"]),
+    )
+    if preview.preview_kind == "renderable-file":
+        preview.preview_url = str(request.url_for("preview_file", upload_id=str(record["upload_id"])))
+    return preview.to_dict()
+
+
+@app.get("/preview/{upload_id}/file", name="preview_file")
+def preview_file(upload_id: str):
+    record = get_upload_record(upload_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Upload record not found.")
+
+    stored_path = _resolve_stored_path(record)
+    if not stored_path.exists():
+        raise HTTPException(status_code=404, detail="Stored file not found.")
+
+    detected_content_type = str(record["detected_content_type"])
+    if detected_content_type not in {
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+        "audio/mpeg",
+        "video/mp4",
+        "video/x-matroska",
+    }:
+        raise HTTPException(status_code=400, detail="This file type does not have an inline preview.")
+
+    filename = str(record["original_filename"])
+    return FileResponse(
+        path=stored_path,
+        media_type=detected_content_type,
+        filename=filename,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
 async def _save_uploaded_file(*, file: UploadFile, destination: Path) -> None:
     size_bytes = 0
 
@@ -102,6 +164,13 @@ async def _save_uploaded_file(*, file: UploadFile, destination: Path) -> None:
         if destination.exists():
             destination.unlink(missing_ok=True)
         raise
+
+
+def _resolve_stored_path(record: dict[str, object]) -> Path:
+    stored_filename = str(record["stored_filename"])
+    source_kind = str(record["source_kind"])
+    base_root = UPLOAD_ROOT if source_kind == "upload" else REMOTE_ROOT
+    return base_root / stored_filename
 
 
 def _analyze_and_store_file(

@@ -9,9 +9,13 @@ export default function HomePage() {
   const [urlState, setUrlState] = useState("idle");
   const [urlResult, setUrlResult] = useState(null);
   const [analysisHistory, setAnalysisHistory] = useState([]);
+  const [urlPreviewState, setUrlPreviewState] = useState("idle");
+  const [urlPreviewResult, setUrlPreviewResult] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadState, setUploadState] = useState("idle");
   const [uploadResult, setUploadResult] = useState(null);
+  const [uploadPreviewState, setUploadPreviewState] = useState("idle");
+  const [uploadPreviewResult, setUploadPreviewResult] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,6 +56,8 @@ export default function HomePage() {
     setUrlInput(normalizedUrl);
     setUrlState("analyzing");
     setUrlResult(null);
+    setUrlPreviewState("idle");
+    setUrlPreviewResult(null);
 
     try {
       const response = await fetch("/api/analyze-url", {
@@ -100,6 +106,41 @@ export default function HomePage() {
     return analysisHistory.find((entry) => entry.inspected_url === candidateUrl);
   }
 
+  async function loadPreview(uploadId, setPreviewState, setPreviewResult) {
+    if (!uploadId) {
+      setPreviewState("missing-upload");
+      setPreviewResult({ error: "No analyzed upload is available yet." });
+      return;
+    }
+
+    setPreviewState("loading");
+    setPreviewResult(null);
+
+    try {
+      const response = await fetch("/api/preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ upload_id: uploadId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setPreviewState("error");
+        setPreviewResult(data);
+        return;
+      }
+
+      setPreviewState("done");
+      setPreviewResult(data);
+    } catch (error) {
+      setPreviewState("error");
+      setPreviewResult({ error: "Preview load failed." });
+    }
+  }
+
   async function handleUpload(event) {
     event.preventDefault();
 
@@ -111,6 +152,8 @@ export default function HomePage() {
 
     setUploadState("uploading");
     setUploadResult(null);
+    setUploadPreviewState("idle");
+    setUploadPreviewResult(null);
 
     const formData = new FormData();
     formData.append("file", selectedFile);
@@ -135,6 +178,65 @@ export default function HomePage() {
       setUploadState("error");
       setUploadResult({ error: "Upload failed." });
     }
+  }
+
+  function renderPreviewPanel(preview, previewState) {
+    if (previewState === "loading") {
+      return <p>Generating safe preview...</p>;
+    }
+
+    if (previewState === "error") {
+      return <p>{preview?.error ?? "Preview generation failed."}</p>;
+    }
+
+    if (!preview && previewState !== "done") {
+      return null;
+    }
+
+    if (preview?.preview_kind === "renderable-file" && preview.preview_url) {
+      const contentType = preview.content_type || "";
+      if (contentType.startsWith("image/")) {
+        return <img className="previewMedia" src={preview.preview_url} alt={preview.preview_title} />;
+      }
+      if (contentType.startsWith("video/")) {
+        return <video className="previewMedia" controls src={preview.preview_url} />;
+      }
+      if (contentType.startsWith("audio/")) {
+        return <audio className="previewAudio" controls src={preview.preview_url} />;
+      }
+      return (
+        <iframe
+          className="previewFrame"
+          src={preview.preview_url}
+          title={preview.preview_title}
+        />
+      );
+    }
+
+    return (
+      <div className="previewStructured">
+        <h4>{preview?.preview_title ?? "Safe preview"}</h4>
+        <p>{preview?.summary ?? "Preview not loaded yet."}</p>
+        {preview?.text ? <pre className="previewText">{preview.text}</pre> : null}
+        {preview?.items?.length ? (
+          <div className="previewItems">
+            <p>Preview items:</p>
+            <ul>
+              {preview.items.map((item) => (
+                <li key={item.name}>
+                  <strong>{item.name}</strong>
+                  <span>
+                    {" "}
+                    - {item.size} bytes
+                    {item.compressed_size !== undefined ? ` / ${item.compressed_size} compressed` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   return (
@@ -170,6 +272,14 @@ export default function HomePage() {
             />
           </label>
           <button type="submit">Analyze Link</button>
+          {urlResult?.upload_id ? (
+            <button
+              type="button"
+              onClick={() => loadPreview(urlResult.upload_id, setUrlPreviewState, setUrlPreviewResult)}
+            >
+              Load Safe Preview
+            </button>
+          ) : null}
           <pre>{JSON.stringify(urlResult, null, 2)}</pre>
           {urlResult?.source_state ? (
             <div className="fingerprintSummary">
@@ -298,6 +408,26 @@ export default function HomePage() {
               </p>
             </div>
           ) : null}
+          {urlPreviewResult || urlPreviewState !== "idle" ? (
+            <div className="fingerprintSummary">
+              <h3>Safe preview</h3>
+              <p>Preview state: <strong>{urlPreviewState}</strong></p>
+              {urlPreviewResult?.preview_kind ? (
+                <p>
+                  Preview kind: <strong>{urlPreviewResult.preview_kind}</strong>
+                </p>
+              ) : null}
+              {urlPreviewResult?.preview_url ? (
+                <p>
+                  Preview URL:{" "}
+                  <a href={urlPreviewResult.preview_url} target="_blank" rel="noreferrer">
+                    Open preview in a new tab
+                  </a>
+                </p>
+              ) : null}
+              {renderPreviewPanel(urlPreviewResult, urlPreviewState)}
+            </div>
+          ) : null}
         </form>
 
         <form className="uploadCard fallbackCard" onSubmit={handleUpload}>
@@ -313,6 +443,14 @@ export default function HomePage() {
             />
           </label>
           <button type="submit">Upload File</button>
+          {uploadResult?.upload_id ? (
+            <button
+              type="button"
+              onClick={() => loadPreview(uploadResult.upload_id, setUploadPreviewState, setUploadPreviewResult)}
+            >
+              Load Safe Preview
+            </button>
+          ) : null}
           <pre>{JSON.stringify(uploadResult, null, 2)}</pre>
           {uploadResult?.fingerprint ? (
             <div className="fingerprintSummary">
@@ -329,6 +467,26 @@ export default function HomePage() {
               <p>
                 Confidence: <strong>{uploadResult.fingerprint.confidence}</strong>
               </p>
+            </div>
+          ) : null}
+          {uploadPreviewResult || uploadPreviewState !== "idle" ? (
+            <div className="fingerprintSummary">
+              <h3>Safe preview</h3>
+              <p>Preview state: <strong>{uploadPreviewState}</strong></p>
+              {uploadPreviewResult?.preview_kind ? (
+                <p>
+                  Preview kind: <strong>{uploadPreviewResult.preview_kind}</strong>
+                </p>
+              ) : null}
+              {uploadPreviewResult?.preview_url ? (
+                <p>
+                  Preview URL:{" "}
+                  <a href={uploadPreviewResult.preview_url} target="_blank" rel="noreferrer">
+                    Open preview in a new tab
+                  </a>
+                </p>
+              ) : null}
+              {renderPreviewPanel(uploadPreviewResult, uploadPreviewState)}
             </div>
           ) : null}
         </form>

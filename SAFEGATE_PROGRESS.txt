@@ -243,3 +243,10 @@ Candidate comparison and richer extraction:
 - The frontend has a compare-candidates panel that shows score, reasons, selection status, and recent inspection history.
 - The landing-page extractor was expanded to look at `data-*` download attributes, `onclick` handlers, and inline script text, which helps with JavaScript-heavy download pages.
 - This is a better fit for sites that hide the real file behind buttons or generated links instead of exposing it directly in HTML.
+
+Safe previews:
+- Timestamp: `2026-05-30 15:23:09 +05:30`
+- SafeGate now has a preview API that can produce a temporary inline preview for renderable files like images, PDFs, audio, and video.
+- For archives, Office packages, and unsupported binaries, the preview path shows a safe structured summary instead of trying to open the file directly.
+- The frontend now has a `Load Safe Preview` action for both URL analysis and direct upload results.
+- This is the first step toward a real preview workflow before adding more advanced file rendering.

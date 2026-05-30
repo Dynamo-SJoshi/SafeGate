@@ -284,6 +284,62 @@ h1 {
   word-break: break-word;
 }
 
+.previewStructured {
+  display: grid;
+  gap: 10px;
+}
+
+.previewStructured h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.previewText {
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(6, 12, 22, 0.78);
+  border: 1px solid rgba(140, 170, 255, 0.12);
+  border-radius: 14px;
+  padding: 14px;
+  color: #dbe6ff;
+}
+
+.previewItems ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.previewItems li {
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+
+.previewMedia,
+.previewFrame {
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid rgba(140, 170, 255, 0.14);
+  border-radius: 16px;
+  background: rgba(6, 12, 22, 0.78);
+}
+
+.previewMedia {
+  max-height: 480px;
+  object-fit: contain;
+}
+
+.previewAudio {
+  width: 100%;
+}
+
+.previewFrame {
+  min-height: 460px;
+}
+
 pre {
   margin: 0;
   overflow-x: auto;

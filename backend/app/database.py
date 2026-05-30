@@ -182,3 +182,42 @@ def save_upload_record(
                     "candidate_urls": Jsonb(candidate_urls or []),
                 },
             )
+
+
+def get_upload_record(upload_id: str) -> dict[str, object] | None:
+    initialize_database()
+
+    with db_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    upload_id,
+                    original_filename,
+                    stored_filename,
+                    content_type,
+                    size_bytes,
+                    sha256,
+                    claimed_content_type,
+                    detected_content_type,
+                    claimed_extension,
+                    detected_type,
+                    match_status,
+                    confidence,
+                    fingerprint,
+                    analysis_state,
+                    source_url,
+                    source_kind,
+                    source_state,
+                    selected_candidate_url,
+                    candidate_urls,
+                    created_at
+                FROM uploads
+                WHERE upload_id = %s
+                """,
+                (upload_id,),
+            )
+            record = cursor.fetchone()
+            if record is None:
+                return None
+            return dict(record)

@@ -344,4 +344,10 @@ When `landing_page_followed` appears, the response also includes `selected_candi
 
 If the page exposes multiple candidates, SafeGate now also returns candidate scores and reasons so you can compare alternatives in the UI.
 
+The preview flow is now available too:
+
+- click `Load Safe Preview` after an upload or URL analysis
+- renderable files open inline in a temporary viewer
+- archives, Office packages, and binaries fall back to a safe structured summary
+
 This makes SafeGate better suited for download sites that do not expose the actual file directly in the first URL.
