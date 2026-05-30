@@ -8,12 +8,16 @@ from urllib.parse import urlparse
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from .environment import load_local_env_files
 from .database import get_upload_record, save_upload_record
 from .fingerprinting import fingerprint_file
+from .gemini import ask_gemini_about_analysis, explain_analysis_with_gemini
 from .previewing import build_preview
 from .url_fetching import fetch_remote_source
+
+load_local_env_files()
 
 app = FastAPI(title="SafeGate API", version="0.1.0")
 
@@ -33,9 +37,50 @@ class PreviewRequest(BaseModel):
     upload_id: str
 
 
+class GeminiExplainRequest(BaseModel):
+    analysis: dict[str, object]
+
+
+class GeminiChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class GeminiChatRequest(BaseModel):
+    analysis: dict[str, object]
+    question: str
+    history: list[GeminiChatMessage] = Field(default_factory=list)
+
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "safegate-api"}
+
+
+@app.post("/gemini/explain")
+def gemini_explain(payload: GeminiExplainRequest):
+    try:
+        answer = explain_analysis_with_gemini(payload.analysis)
+        return {"answer": answer}
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/gemini/chat")
+def gemini_chat(payload: GeminiChatRequest):
+    try:
+        answer = ask_gemini_about_analysis(
+            analysis=payload.analysis,
+            question=payload.question,
+            history=[message.model_dump() for message in payload.history],
+        )
+        return {"answer": answer}
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.post("/upload")

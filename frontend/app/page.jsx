@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import GeminiAssistant from "./GeminiAssistant";
 
 export default function HomePage() {
   const [health, setHealth] = useState("checking");
@@ -408,6 +409,13 @@ export default function HomePage() {
               </p>
             </div>
           ) : null}
+          {urlResult?.upload_id ? (
+            <GeminiAssistant
+              title="Gemini explanation and chat"
+              analysis={{ ...urlResult, preview: urlPreviewResult }}
+              analysisKey={urlResult.upload_id}
+            />
+          ) : null}
           {urlPreviewResult || urlPreviewState !== "idle" ? (
             <div className="fingerprintSummary">
               <h3>Safe preview</h3>
@@ -468,6 +476,13 @@ export default function HomePage() {
                 Confidence: <strong>{uploadResult.fingerprint.confidence}</strong>
               </p>
             </div>
+          ) : null}
+          {uploadResult?.upload_id ? (
+            <GeminiAssistant
+              title="Gemini explanation and chat"
+              analysis={{ ...uploadResult, preview: uploadPreviewResult }}
+              analysisKey={uploadResult.upload_id}
+            />
           ) : null}
           {uploadPreviewResult || uploadPreviewState !== "idle" ? (
             <div className="fingerprintSummary">

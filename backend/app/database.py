@@ -7,6 +7,11 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from .environment import load_local_env_files
+
+
+load_local_env_files()
+
 
 UPLOADS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS uploads (

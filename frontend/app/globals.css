@@ -284,6 +284,98 @@ h1 {
   word-break: break-word;
 }
 
+.geminiActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0;
+}
+
+.geminiActions button,
+.geminiChatForm button {
+  border: 1px solid rgba(110, 231, 255, 0.22);
+  background: linear-gradient(135deg, rgba(110, 231, 255, 0.18), rgba(124, 155, 255, 0.18));
+  color: var(--text);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.geminiState {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.geminiAnswer {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(110, 231, 255, 0.08);
+  border: 1px solid rgba(110, 231, 255, 0.16);
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.geminiError {
+  margin: 10px 0 0;
+  color: #ffb3c1;
+}
+
+.geminiChat {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(140, 170, 255, 0.12);
+}
+
+.geminiChat h4 {
+  margin: 0 0 6px;
+  font-size: 0.98rem;
+}
+
+.geminiChat p {
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+
+.geminiChatForm {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.geminiChatForm input {
+  border: 1px solid rgba(140, 170, 255, 0.18);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: rgba(5, 9, 18, 0.9);
+  color: var(--text);
+}
+
+.geminiChatMessages {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.geminiMessage {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(140, 170, 255, 0.12);
+  background: rgba(6, 12, 22, 0.72);
+  color: var(--text);
+  word-break: break-word;
+}
+
+.geminiMessage.user {
+  border-color: rgba(110, 231, 255, 0.18);
+}
+
+.geminiMessage.assistant {
+  border-color: rgba(124, 155, 255, 0.18);
+}
+
 .previewStructured {
   display: grid;
   gap: 10px;
@@ -385,6 +477,10 @@ pre {
 
   .candidateCompareHead,
   .candidateCompareRow {
+    grid-template-columns: 1fr;
+  }
+
+  .geminiChatForm {
     grid-template-columns: 1fr;
   }
 }

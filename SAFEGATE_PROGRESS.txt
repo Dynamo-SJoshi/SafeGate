@@ -256,3 +256,10 @@ NAT64 URL handling:
 - SafeGate now allows public NAT64-translated addresses in the well-known `64:ff9b::/96` range.
 - The validator checks the embedded IPv4 address inside that NAT64 address and still blocks private, loopback, link-local, reserved, and unspecified targets.
 - This makes link analysis less strict for real public sites that resolve through NAT64 while keeping the SSRF protections intact.
+
+Gemini integration:
+- Timestamp: `2026-05-30 18:46:38 +05:30`
+- SafeGate now supports server-side Gemini explanations and short chat answers for analysis data.
+- Gemini responses are constrained to at most 2 lines and are generated only on the backend, using a local `GEMINI_API_KEY` environment variable or `backend\.env`.
+- The frontend now shows an explanation button and a small related-doubt chat panel for both URL analysis and direct uploads.
+- The API key stays out of GitHub because only placeholder values live in `backend\.env.example`.

@@ -27,6 +27,18 @@ Set the database URL before starting the server:
 set DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/postgres
 ```
 
+Set the Gemini key if you want AI explanations and chat:
+
+```bash
+set GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+```
+
+Optional model override:
+
+```bash
+set GEMINI_MODEL=gemini-2.5-flash
+```
+
 Start the server:
 
 ```bash
@@ -54,3 +66,10 @@ POST http://127.0.0.1:8000/analyze-url
 The backend will create the `uploads` table automatically on startup.
 
 When a URL points to HTML instead of a direct file, the backend now marks it as a landing page and returns candidate download links when it can find them.
+
+The backend can also call Gemini server-side to generate:
+
+- a very short plain-English explanation of the technical analysis
+- a short chat answer for questions related to the current analysis
+
+Your Gemini key is read from `backend/.env` or the terminal environment. Do not put the real key in GitHub.

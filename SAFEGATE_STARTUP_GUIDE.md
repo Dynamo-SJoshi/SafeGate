@@ -265,6 +265,7 @@ Before testing SafeGate:
 - backend terminal is in `C:\Users\DELL\Downloads\SafeGate`
 - `.venv` is activated
 - `DATABASE_URL` is set in the same terminal
+- `GEMINI_API_KEY` is set in the same terminal or in `backend\.env`
 - backend is running on port `8000`
 - frontend is running on port `3000`
 - PostgreSQL service is running
@@ -276,6 +277,10 @@ Before testing SafeGate:
 ### `DATABASE_URL is not set`
 
 Set it in the backend terminal before starting `uvicorn`.
+
+### `GEMINI_API_KEY is not set`
+
+Set it in the backend terminal, or copy `backend\.env.example` to `backend\.env` and replace the placeholder key.
 
 ### `python-multipart` missing
 
@@ -292,6 +297,10 @@ Install backend dependencies again in the active `.venv`.
 ### Backend says `503` during URL analysis
 
 Usually means PostgreSQL was not reachable or `DATABASE_URL` was missing in the backend terminal.
+
+### Gemini explanation or chat fails
+
+Usually means the backend cannot find `GEMINI_API_KEY`, or the Gemini API returned an error. Make sure the key is set only on your local machine.
 
 ### `Remote file exceeds the SafeGate fetch limit`
 
@@ -351,5 +360,13 @@ The preview flow is now available too:
 - archives, Office packages, and binaries fall back to a safe structured summary
 
 If a public site resolves through NAT64, SafeGate now checks the embedded IPv4 target and allows it when the real target is public.
+
+Gemini is integrated on the backend as a private helper:
+
+- set `GEMINI_API_KEY` in `backend\.env` or the backend terminal
+- optionally set `GEMINI_MODEL=gemini-2.5-flash`
+- the frontend only calls local SafeGate routes, not Gemini directly
+- Gemini responses are trimmed to at most 2 lines for simple explanations
+- the chat box is for related doubts about the current analysis only
 
 This makes SafeGate better suited for download sites that do not expose the actual file directly in the first URL.
