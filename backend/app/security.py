@@ -10,6 +10,7 @@ BLOCKED_HOSTNAMES = {
     "localhost",
     "localhost.localdomain",
 }
+NAT64_WELL_KNOWN_PREFIX = ipaddress.IPv6Network("64:ff9b::/96")
 
 
 def validate_and_normalize_url(raw_url: str) -> str:
@@ -55,6 +56,10 @@ def _assert_hostname_resolves_to_public_addresses(hostname: str) -> None:
         except ValueError as exc:
             raise ValueError("Resolved address is invalid.") from exc
 
+        if _is_nat64_translated_public_address(ip_obj):
+            resolved_addresses.add(str(ip_obj))
+            continue
+
         if _is_blocked_ip(ip_obj):
             raise ValueError(f"Hostname resolves to blocked address: {ip_obj}")
 
@@ -75,3 +80,17 @@ def _is_blocked_ip(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address) -> boo
             ip_obj.is_unspecified,
         ]
     )
+
+
+def _is_nat64_translated_public_address(
+    ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address,
+) -> bool:
+    if not isinstance(ip_obj, ipaddress.IPv6Address):
+        return False
+
+    if ip_obj not in NAT64_WELL_KNOWN_PREFIX:
+        return False
+
+    embedded_ipv4_int = int(ip_obj) & 0xFFFFFFFF
+    embedded_ipv4 = ipaddress.IPv4Address(embedded_ipv4_int)
+    return not _is_blocked_ip(embedded_ipv4)

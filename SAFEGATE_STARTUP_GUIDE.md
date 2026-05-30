@@ -350,4 +350,6 @@ The preview flow is now available too:
 - renderable files open inline in a temporary viewer
 - archives, Office packages, and binaries fall back to a safe structured summary
 
+If a public site resolves through NAT64, SafeGate now checks the embedded IPv4 target and allows it when the real target is public.
+
 This makes SafeGate better suited for download sites that do not expose the actual file directly in the first URL.

@@ -250,3 +250,9 @@ Safe previews:
 - For archives, Office packages, and unsupported binaries, the preview path shows a safe structured summary instead of trying to open the file directly.
 - The frontend now has a `Load Safe Preview` action for both URL analysis and direct upload results.
 - This is the first step toward a real preview workflow before adding more advanced file rendering.
+
+NAT64 URL handling:
+- Timestamp: `2026-05-30 15:29:10 +05:30`
+- SafeGate now allows public NAT64-translated addresses in the well-known `64:ff9b::/96` range.
+- The validator checks the embedded IPv4 address inside that NAT64 address and still blocks private, loopback, link-local, reserved, and unspecified targets.
+- This makes link analysis less strict for real public sites that resolve through NAT64 while keeping the SSRF protections intact.
