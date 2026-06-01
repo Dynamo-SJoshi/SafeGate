@@ -40,7 +40,7 @@ export default function GeminiAssistant({ analysis, analysisKey, title }) {
 
       if (!response.ok) {
         setExplainState("error");
-        setExplanation(data);
+        setExplanation({ error: data.detail || data.error || "Gemini explanation failed." });
         return;
       }
 
@@ -90,7 +90,10 @@ export default function GeminiAssistant({ analysis, analysisKey, title }) {
 
       if (!response.ok) {
         setChatState("error");
-        setChatMessages((previous) => [...previous, { role: "assistant", content: data.error ?? "Chat failed." }]);
+        setChatMessages((previous) => [
+          ...previous,
+          { role: "assistant", content: data.detail || data.error || "Chat failed." },
+        ]);
         return;
       }
 
@@ -116,6 +119,8 @@ export default function GeminiAssistant({ analysis, analysisKey, title }) {
         <p className="geminiAnswer">{explanation.answer}</p>
       ) : explanation?.error ? (
         <p className="geminiError">{explanation.error}</p>
+      ) : explanation?.detail ? (
+        <p className="geminiError">{explanation.detail}</p>
       ) : null}
 
       <div className="geminiChat">
