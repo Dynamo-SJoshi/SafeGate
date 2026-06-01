@@ -286,28 +286,6 @@ h1 {
   background-color: #fff;
 }
 
-.uploadCard .previewButton,
-.uploadCard .detailButton {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
-    #111725;
-  color: #edf4ff;
-  border-color: rgba(221, 229, 255, 0.18);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 8px 18px rgba(0, 0, 0, 0.22);
-}
-
-.uploadCard .inspectButton {
-  background: #050505;
-  color: #f3f3f3;
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 6px 16px rgba(0, 0, 0, 0.32);
-  text-transform: uppercase;
-}
-
 .actionButton {
   position: relative;
   border: 1px solid transparent;
@@ -331,6 +309,128 @@ h1 {
 .actionButton:focus-visible {
   outline: 2px solid rgba(110, 231, 255, 0.7);
   outline-offset: 3px;
+}
+
+.cevorobButton {
+  position: relative;
+  height: 50px;
+  padding: 0 30px;
+  border: 2px solid #000;
+  background: #e8e8e8;
+  user-select: none;
+  white-space: nowrap;
+  transition: all 0.05s linear;
+  font-family: inherit;
+  cursor: crosshair;
+  align-self: start;
+}
+
+.cevorobButton::before,
+.cevorobButton::after {
+  content: "";
+  position: absolute;
+  background: #e8e8e8;
+  transition: all 0.2s linear;
+}
+
+.cevorobButton::before {
+  width: calc(100% + 6px);
+  height: calc(100% - 16px);
+  top: 8px;
+  left: -3px;
+}
+
+.cevorobButton::after {
+  width: calc(100% - 16px);
+  height: calc(100% + 6px);
+  top: -3px;
+  left: 8px;
+}
+
+.cevorobButton:active {
+  transform: scale(0.95);
+}
+
+.cevorobButton:hover::before {
+  height: calc(100% - 32px);
+  top: 16px;
+}
+
+.cevorobButton:hover::after {
+  width: calc(100% - 32px);
+  left: 16px;
+}
+
+.cevorobButton span {
+  font-size: 15px;
+  z-index: 3;
+  position: relative;
+  font-weight: 600;
+}
+
+.adamgieblButton {
+  font-family: inherit;
+  font-size: 20px;
+  background: royalblue;
+  color: white;
+  padding: 0.7em 1em;
+  padding-left: 0.9em;
+  display: flex;
+  align-items: center;
+  border: none;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.2s;
+  cursor: pointer;
+  align-self: start;
+}
+
+.adamgieblButton span {
+  display: block;
+  margin-left: 0.3em;
+  transition: all 0.3s ease-in-out;
+}
+
+.adamgieblButton svg {
+  display: block;
+  transform-origin: center center;
+  transition: transform 0.3s ease-in-out;
+}
+
+.adamgieblButton:hover .svgWrapper {
+  animation: fly-1 0.6s ease-in-out infinite alternate;
+}
+
+.adamgieblButton:hover svg {
+  transform: translateX(1.2em) rotate(45deg) scale(1.1);
+}
+
+.adamgieblButton:hover span {
+  transform: translateX(5em);
+}
+
+.adamgieblButton:active {
+  transform: scale(0.95);
+}
+
+.svgWrapper1 {
+  display: flex;
+  align-items: center;
+}
+
+.svgWrapper {
+  display: flex;
+  align-items: center;
+}
+
+@keyframes fly-1 {
+  from {
+    transform: translateY(0.1em);
+  }
+
+  to {
+    transform: translateY(-0.1em);
+  }
 }
 
 .analyzeButton {

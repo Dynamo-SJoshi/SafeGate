@@ -285,20 +285,20 @@ export default function HomePage() {
           {urlResult?.upload_id ? (
             <button
               type="button"
-              className="actionButton previewButton"
+              className="cevorobButton previewButton"
               onClick={() => loadPreview(urlResult.upload_id, setUrlPreviewState, setUrlPreviewResult)}
             >
-              Load Safe Preview
+              <span>Load Safe Preview</span>
             </button>
           ) : null}
           {urlResult ? (
             <div className="detailsToggle">
               <button
                 type="button"
-                className="actionButton detailButton detailsToggleButton"
+                className="cevorobButton detailButton detailsToggleButton"
                 onClick={() => setUrlDetailsOpen((previous) => !previous)}
               >
-                {urlDetailsOpen ? "Hide details" : "View more details"}
+                <span>{urlDetailsOpen ? "Hide details" : "View more details"}</span>
               </button>
               {urlDetailsOpen ? <pre>{JSON.stringify(urlResult, null, 2)}</pre> : null}
             </div>
@@ -344,8 +344,24 @@ export default function HomePage() {
                     {urlResult.candidate_urls.map((candidate) => (
                       <li key={candidate}>
                         <span>{candidate}</span>{" "}
-                        <button type="button" className="actionButton inspectButton" onClick={() => handleCandidateInspect(candidate)}>
-                          Inspect
+                        <button type="button" className="adamgieblButton inspectButton" onClick={() => handleCandidateInspect(candidate)}>
+                          <div className="svgWrapper1">
+                            <div className="svgWrapper">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                width="24"
+                                height="24"
+                              >
+                                <path fill="none" d="M0 0h24v24H0z"></path>
+                                <path
+                                  fill="currentColor"
+                                  d="M1.946 9.315c-.522-.174-.527-.455.01-.634l19.087-6.362c.529-.176.832.12.684.638l-5.454 19.086c-.15.529-.455.547-.679.045L12 14l6-8-8 6-8.054-2.685z"
+                                ></path>
+                              </svg>
+                            </div>
+                          </div>
+                          <span>Inspect</span>
                         </button>{" "}
                         <a href={candidate} target="_blank" rel="noreferrer">
                           Open
@@ -383,8 +399,24 @@ export default function HomePage() {
                         {isSelectedCandidate ? "selected" : inspectedCandidate ? "inspected" : "pending"}
                       </span>
                       <span className="candidateActions">
-                        <button type="button" className="actionButton inspectButton" onClick={() => handleCandidateInspect(candidate.url)}>
-                          Inspect
+                        <button type="button" className="adamgieblButton inspectButton" onClick={() => handleCandidateInspect(candidate.url)}>
+                          <div className="svgWrapper1">
+                            <div className="svgWrapper">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                width="24"
+                                height="24"
+                              >
+                                <path fill="none" d="M0 0h24v24H0z"></path>
+                                <path
+                                  fill="currentColor"
+                                  d="M1.946 9.315c-.522-.174-.527-.455.01-.634l19.087-6.362c.529-.176.832.12.684.638l-5.454 19.086c-.15.529-.455.547-.679.045L12 14l6-8-8 6-8.054-2.685z"
+                                ></path>
+                              </svg>
+                            </div>
+                          </div>
+                          <span>Inspect</span>
                         </button>{" "}
                         <a href={candidate.url} target="_blank" rel="noreferrer">
                           Open
@@ -480,20 +512,20 @@ export default function HomePage() {
           {uploadResult?.upload_id ? (
             <button
               type="button"
-              className="actionButton previewButton"
+              className="cevorobButton previewButton"
               onClick={() => loadPreview(uploadResult.upload_id, setUploadPreviewState, setUploadPreviewResult)}
             >
-              Load Safe Preview
+              <span>Load Safe Preview</span>
             </button>
           ) : null}
           {uploadResult ? (
             <div className="detailsToggle">
               <button
                 type="button"
-                className="actionButton detailButton detailsToggleButton"
+                className="cevorobButton detailButton detailsToggleButton"
                 onClick={() => setUploadDetailsOpen((previous) => !previous)}
               >
-                {uploadDetailsOpen ? "Hide details" : "View more details"}
+                <span>{uploadDetailsOpen ? "Hide details" : "View more details"}</span>
               </button>
               {uploadDetailsOpen ? <pre>{JSON.stringify(uploadResult, null, 2)}</pre> : null}
             </div>
