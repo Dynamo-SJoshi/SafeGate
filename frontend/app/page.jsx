@@ -276,8 +276,11 @@ export default function HomePage() {
               onChange={(event) => setUrlInput(event.target.value)}
             />
           </label>
-          <button type="submit" className="actionButton analyzeButton">
-            Analyze Link
+          <button type="submit" className="uiverseButton analyzeButton">
+            <span className="uiverseButtonLg">
+              <span className="uiverseButtonSl" />
+              <span className="uiverseButtonText">Analyze Link</span>
+            </span>
           </button>
           {urlResult?.upload_id ? (
             <button
@@ -468,8 +471,11 @@ export default function HomePage() {
               onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
             />
           </label>
-          <button type="submit" className="actionButton analyzeButton">
-            Upload File
+          <button type="submit" className="uiverseButton analyzeButton">
+            <span className="uiverseButtonLg">
+              <span className="uiverseButtonSl" />
+              <span className="uiverseButtonText">Upload File</span>
+            </span>
           </button>
           {uploadResult?.upload_id ? (
             <button
