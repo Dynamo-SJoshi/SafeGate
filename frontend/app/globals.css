@@ -175,8 +175,8 @@ h1 {
   background: none;
   color: #0f1923;
   position: relative;
-  padding: 8px;
-  margin-bottom: 20px;
+  padding: 0;
+  margin-bottom: 14px;
   text-transform: uppercase;
   font-weight: bold;
   font-size: 14px;
@@ -186,14 +186,7 @@ h1 {
 
 .uiverseButton::before,
 .uiverseButton::after {
-  content: "";
-  display: block;
-  position: absolute;
-  right: 0;
-  left: 0;
-  height: calc(50% - 5px);
-  border: 1px solid transparent;
-  transition: all 0.15s ease;
+  display: none;
 }
 
 .uiverseButton::before {
@@ -227,17 +220,20 @@ h1 {
 
 .uiverseButtonLg {
   position: relative;
-  display: block;
-  padding: 10px 20px;
-  color: #07111e;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  min-width: 160px;
+  color: #edf4ff;
   background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.25), transparent 40%),
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.18), transparent 40%),
     linear-gradient(135deg, #5dd7ff 0%, #7b8cff 52%, #4f6bff 100%);
   overflow: hidden;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 10px 22px rgba(79, 107, 255, 0.22);
-  border-radius: 6px;
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 10px 22px rgba(79, 107, 255, 0.24);
+  border-radius: 10px;
 }
 
 .uiverseButtonLg::before {
@@ -280,7 +276,7 @@ h1 {
 }
 
 .uiverseButton:hover {
-  color: #07111e;
+  color: #edf4ff;
 }
 
 .uiverseButton:hover .uiverseButtonSl {
@@ -318,12 +314,15 @@ h1 {
 
 .cevorobButton {
   position: relative;
-  height: 50px;
-  padding: 0 30px;
-  border: 2px solid rgba(140, 170, 255, 0.22);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  padding: 0 18px;
+  border: 2px solid rgba(140, 170, 255, 0.16);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
-    #0f1726;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    #0d1524;
   user-select: none;
   white-space: nowrap;
   transition: all 0.05s linear;
@@ -337,7 +336,7 @@ h1 {
 .cevorobButton::after {
   content: "";
   position: absolute;
-  background: #0f1726;
+  background: #0d1524;
   transition: all 0.2s linear;
 }
 
@@ -379,10 +378,10 @@ h1 {
 
 .adamgieblButton {
   font-family: inherit;
-  font-size: 16px;
+  font-size: 15px;
   background: linear-gradient(135deg, #4f6bff, #5dd7ff);
   color: white;
-  padding: 0.7em 1em;
+  padding: 0.62em 0.95em;
   padding-left: 0.9em;
   display: flex;
   align-items: center;
@@ -399,7 +398,7 @@ h1 {
 
 .adamgieblButton span {
   display: block;
-  margin-left: 0.3em;
+  margin-left: 0.25em;
   transition: all 0.3s ease-in-out;
   color: #ffffff;
 }
