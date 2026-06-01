@@ -12,11 +12,13 @@ export default function HomePage() {
   const [analysisHistory, setAnalysisHistory] = useState([]);
   const [urlPreviewState, setUrlPreviewState] = useState("idle");
   const [urlPreviewResult, setUrlPreviewResult] = useState(null);
+  const [urlDetailsOpen, setUrlDetailsOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadState, setUploadState] = useState("idle");
   const [uploadResult, setUploadResult] = useState(null);
   const [uploadPreviewState, setUploadPreviewState] = useState("idle");
   const [uploadPreviewResult, setUploadPreviewResult] = useState(null);
+  const [uploadDetailsOpen, setUploadDetailsOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +61,7 @@ export default function HomePage() {
     setUrlResult(null);
     setUrlPreviewState("idle");
     setUrlPreviewResult(null);
+    setUrlDetailsOpen(false);
 
     try {
       const response = await fetch("/api/analyze-url", {
@@ -155,6 +158,7 @@ export default function HomePage() {
     setUploadResult(null);
     setUploadPreviewState("idle");
     setUploadPreviewResult(null);
+    setUploadDetailsOpen(false);
 
     const formData = new FormData();
     formData.append("file", selectedFile);
@@ -281,7 +285,18 @@ export default function HomePage() {
               Load Safe Preview
             </button>
           ) : null}
-          <pre>{JSON.stringify(urlResult, null, 2)}</pre>
+          {urlResult ? (
+            <div className="detailsToggle">
+              <button
+                type="button"
+                className="detailsToggleButton"
+                onClick={() => setUrlDetailsOpen((previous) => !previous)}
+              >
+                {urlDetailsOpen ? "Hide details" : "View more details"}
+              </button>
+              {urlDetailsOpen ? <pre>{JSON.stringify(urlResult, null, 2)}</pre> : null}
+            </div>
+          ) : null}
           {urlResult?.source_state ? (
             <div className="fingerprintSummary">
               <h3>Source summary</h3>
@@ -459,7 +474,18 @@ export default function HomePage() {
               Load Safe Preview
             </button>
           ) : null}
-          <pre>{JSON.stringify(uploadResult, null, 2)}</pre>
+          {uploadResult ? (
+            <div className="detailsToggle">
+              <button
+                type="button"
+                className="detailsToggleButton"
+                onClick={() => setUploadDetailsOpen((previous) => !previous)}
+              >
+                {uploadDetailsOpen ? "Hide details" : "View more details"}
+              </button>
+              {uploadDetailsOpen ? <pre>{JSON.stringify(uploadResult, null, 2)}</pre> : null}
+            </div>
+          ) : null}
           {uploadResult?.fingerprint ? (
             <div className="fingerprintSummary">
               <h3>Fingerprint summary</h3>

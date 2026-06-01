@@ -168,6 +168,16 @@ h1 {
   cursor: pointer;
 }
 
+.detailsToggle {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.detailsToggleButton {
+  justify-self: start;
+}
+
 .fingerprintSummary {
   margin-top: 16px;
   padding: 16px;
