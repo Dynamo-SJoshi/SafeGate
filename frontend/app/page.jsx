@@ -276,10 +276,13 @@ export default function HomePage() {
               onChange={(event) => setUrlInput(event.target.value)}
             />
           </label>
-          <button type="submit">Analyze Link</button>
+          <button type="submit" className="actionButton analyzeButton">
+            Analyze Link
+          </button>
           {urlResult?.upload_id ? (
             <button
               type="button"
+              className="actionButton previewButton"
               onClick={() => loadPreview(urlResult.upload_id, setUrlPreviewState, setUrlPreviewResult)}
             >
               Load Safe Preview
@@ -289,7 +292,7 @@ export default function HomePage() {
             <div className="detailsToggle">
               <button
                 type="button"
-                className="detailsToggleButton"
+                className="actionButton detailButton detailsToggleButton"
                 onClick={() => setUrlDetailsOpen((previous) => !previous)}
               >
                 {urlDetailsOpen ? "Hide details" : "View more details"}
@@ -338,7 +341,7 @@ export default function HomePage() {
                     {urlResult.candidate_urls.map((candidate) => (
                       <li key={candidate}>
                         <span>{candidate}</span>{" "}
-                        <button type="button" onClick={() => handleCandidateInspect(candidate)}>
+                        <button type="button" className="actionButton inspectButton" onClick={() => handleCandidateInspect(candidate)}>
                           Inspect
                         </button>{" "}
                         <a href={candidate} target="_blank" rel="noreferrer">
@@ -377,7 +380,7 @@ export default function HomePage() {
                         {isSelectedCandidate ? "selected" : inspectedCandidate ? "inspected" : "pending"}
                       </span>
                       <span className="candidateActions">
-                        <button type="button" onClick={() => handleCandidateInspect(candidate.url)}>
+                        <button type="button" className="actionButton inspectButton" onClick={() => handleCandidateInspect(candidate.url)}>
                           Inspect
                         </button>{" "}
                         <a href={candidate.url} target="_blank" rel="noreferrer">
@@ -465,10 +468,13 @@ export default function HomePage() {
               onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
             />
           </label>
-          <button type="submit">Upload File</button>
+          <button type="submit" className="actionButton analyzeButton">
+            Upload File
+          </button>
           {uploadResult?.upload_id ? (
             <button
               type="button"
+              className="actionButton previewButton"
               onClick={() => loadPreview(uploadResult.upload_id, setUploadPreviewState, setUploadPreviewResult)}
             >
               Load Safe Preview
@@ -478,7 +484,7 @@ export default function HomePage() {
             <div className="detailsToggle">
               <button
                 type="button"
-                className="detailsToggleButton"
+                className="actionButton detailButton detailsToggleButton"
                 onClick={() => setUploadDetailsOpen((previous) => !previous)}
               >
                 {uploadDetailsOpen ? "Hide details" : "View more details"}

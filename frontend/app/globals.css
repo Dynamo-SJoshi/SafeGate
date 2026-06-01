@@ -168,6 +168,77 @@ h1 {
   cursor: pointer;
 }
 
+.uploadCard .actionButton {
+  border: 1px solid transparent;
+}
+
+.uploadCard .analyzeButton {
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.28), transparent 38%),
+    linear-gradient(135deg, #5dd7ff 0%, #7b8cff 52%, #4f6bff 100%);
+  color: #07111e;
+  box-shadow:
+    0 10px 24px rgba(79, 107, 255, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.uploadCard .previewButton,
+.uploadCard .detailButton {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    #111725;
+  color: #edf4ff;
+  border-color: rgba(221, 229, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+.uploadCard .inspectButton {
+  background: #050505;
+  color: #f3f3f3;
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 6px 16px rgba(0, 0, 0, 0.32);
+  text-transform: uppercase;
+}
+
+.actionButton {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 12px 18px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.actionButton:hover {
+  transform: translateY(-1px);
+}
+
+.actionButton:focus-visible {
+  outline: 2px solid rgba(110, 231, 255, 0.7);
+  outline-offset: 3px;
+}
+
+.analyzeButton {
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.28), transparent 38%),
+    linear-gradient(135deg, #5dd7ff 0%, #7b8cff 52%, #4f6bff 100%);
+  color: #07111e;
+  box-shadow:
+    0 10px 24px rgba(79, 107, 255, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
 .detailsToggle {
   margin-top: 12px;
   display: grid;
