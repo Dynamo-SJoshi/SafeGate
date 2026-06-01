@@ -366,7 +366,8 @@ Gemini is integrated on the backend as a private helper:
 - set `GEMINI_API_KEY` in `backend\.env` or the backend terminal
 - optionally set `GEMINI_MODEL=gemini-2.5-flash`
 - the frontend only calls local SafeGate routes, not Gemini directly
-- Gemini responses are trimmed to at most 2 lines for simple explanations
+- Gemini responses are formatted as two clear lines using `Summary:` and `Advice:`
 - the chat box is for related doubts about the current analysis only
+- if Gemini reports high demand or a transient failure, SafeGate retries briefly and then falls back to a local SafeGate summary so the panel still works
 
 This makes SafeGate better suited for download sites that do not expose the actual file directly in the first URL.

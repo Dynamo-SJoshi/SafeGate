@@ -409,13 +409,6 @@ export default function HomePage() {
               </p>
             </div>
           ) : null}
-          {urlResult?.upload_id ? (
-            <GeminiAssistant
-              title="Gemini explanation and chat"
-              analysis={{ ...urlResult, preview: urlPreviewResult }}
-              analysisKey={urlResult.upload_id}
-            />
-          ) : null}
           {urlPreviewResult || urlPreviewState !== "idle" ? (
             <div className="fingerprintSummary">
               <h3>Safe preview</h3>
@@ -437,6 +430,13 @@ export default function HomePage() {
             </div>
           ) : null}
         </form>
+        {urlResult?.upload_id ? (
+          <GeminiAssistant
+            title="Gemini explanation and chat"
+            analysis={{ ...urlResult, preview: urlPreviewResult }}
+            analysisKey={urlResult.upload_id}
+          />
+        ) : null}
 
         <form className="uploadCard fallbackCard" onSubmit={handleUpload}>
           <div className="statusHeader">
@@ -477,13 +477,6 @@ export default function HomePage() {
               </p>
             </div>
           ) : null}
-          {uploadResult?.upload_id ? (
-            <GeminiAssistant
-              title="Gemini explanation and chat"
-              analysis={{ ...uploadResult, preview: uploadPreviewResult }}
-              analysisKey={uploadResult.upload_id}
-            />
-          ) : null}
           {uploadPreviewResult || uploadPreviewState !== "idle" ? (
             <div className="fingerprintSummary">
               <h3>Safe preview</h3>
@@ -505,6 +498,13 @@ export default function HomePage() {
             </div>
           ) : null}
         </form>
+        {uploadResult?.upload_id ? (
+          <GeminiAssistant
+            title="Gemini explanation and chat"
+            analysis={{ ...uploadResult, preview: uploadPreviewResult }}
+            analysisKey={uploadResult.upload_id}
+          />
+        ) : null}
       </section>
 
       <section className="grid">

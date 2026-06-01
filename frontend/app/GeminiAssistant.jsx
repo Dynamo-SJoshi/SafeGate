@@ -67,7 +67,8 @@ export default function GeminiAssistant({ analysis, analysisKey, title }) {
     }
 
     const nextUserMessage = { role: "user", content: question };
-    const nextHistory = [...chatMessages, nextUserMessage];
+    const recentHistory = chatMessages.slice(-5);
+    const nextHistory = [...recentHistory, nextUserMessage];
 
     setChatState("loading");
     setChatMessages(nextHistory);
@@ -98,10 +99,13 @@ export default function GeminiAssistant({ analysis, analysisKey, title }) {
       }
 
       setChatState("done");
-      setChatMessages((previous) => [...previous, { role: "assistant", content: data.answer }]);
+      const assistantContent = data.mode === "fallback"
+        ? `${data.answer}\n\nSafeGate fallback used because Gemini was busy.`
+        : data.answer;
+      setChatMessages((previous) => [...previous, { role: "assistant", content: assistantContent }].slice(-12));
     } catch (error) {
       setChatState("error");
-      setChatMessages((previous) => [...previous, { role: "assistant", content: "Gemini chat failed." }]);
+      setChatMessages((previous) => [...previous, { role: "assistant", content: "Gemini chat failed." }].slice(-12));
     }
   }
 
@@ -116,7 +120,16 @@ export default function GeminiAssistant({ analysis, analysisKey, title }) {
         <span className="geminiState">State: {explainState}</span>
       </div>
       {explanation?.answer ? (
-        <p className="geminiAnswer">{explanation.answer}</p>
+        <div className="geminiAnswer">
+          {explanation.answer.split("\n").map((line, index) => (
+            <p key={index}>{line}</p>
+          ))}
+          {explanation.mode === "fallback" ? (
+            <p className="geminiFallbackNote">
+              Gemini is busy right now, so SafeGate used a local fallback summary.
+            </p>
+          ) : null}
+        </div>
       ) : explanation?.error ? (
         <p className="geminiError">{explanation.error}</p>
       ) : explanation?.detail ? (

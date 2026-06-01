@@ -323,6 +323,12 @@ h1 {
   color: #ffb3c1;
 }
 
+.geminiFallbackNote {
+  margin: 8px 0 0;
+  color: #9ad9ff;
+  font-size: 0.9rem;
+}
+
 .geminiChat {
   margin-top: 14px;
   padding-top: 14px;

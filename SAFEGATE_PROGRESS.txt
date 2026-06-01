@@ -263,3 +263,15 @@ Gemini integration:
 - Gemini responses are constrained to at most 2 lines and are generated only on the backend, using a local `GEMINI_API_KEY` environment variable or `backend\.env`.
 - The frontend now shows an explanation button and a small related-doubt chat panel for both URL analysis and direct uploads.
 - The API key stays out of GitHub because only placeholder values live in `backend\.env.example`.
+
+Gemini response format fix:
+- Timestamp: `2026-06-01 16:34:56 +05:30`
+- Gemini output is now forced into a clearer 2-line structure with `Summary:` and `Advice:` labels so it does not cut off mid-sentence as easily.
+- The chat history is kept shorter so Gemini stays focused on the current analysis instead of drifting.
+- The UI now renders Gemini answers as separate lines, which makes the result easier to read.
+
+Gemini high-demand fallback:
+- Timestamp: `2026-06-01 16:52:00 +05:30`
+- SafeGate now retries transient Gemini errors like HTTP `429` and `503`, then falls back to a local SafeGate summary if Gemini is busy.
+- The fallback keeps the AI panel usable even when the provider says it is experiencing high demand.
+- The UI now shows a small note when the fallback summary is being used.

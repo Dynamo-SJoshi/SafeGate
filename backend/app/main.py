@@ -13,7 +13,13 @@ from pydantic import BaseModel, Field
 from .environment import load_local_env_files
 from .database import get_upload_record, save_upload_record
 from .fingerprinting import fingerprint_file
-from .gemini import ask_gemini_about_analysis, explain_analysis_with_gemini
+from .gemini import (
+    ask_gemini_about_analysis,
+    build_fallback_chat_answer,
+    build_fallback_explanation,
+    explain_analysis_with_gemini,
+    is_transient_gemini_error,
+)
 from .previewing import build_preview
 from .url_fetching import fetch_remote_source
 
@@ -61,10 +67,16 @@ def health_check():
 def gemini_explain(payload: GeminiExplainRequest):
     try:
         answer = explain_analysis_with_gemini(payload.analysis)
-        return {"answer": answer}
+        return {"answer": answer, "mode": "gemini"}
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except RuntimeError as exc:
+        if is_transient_gemini_error(exc):
+            return {
+                "answer": build_fallback_explanation(payload.analysis),
+                "mode": "fallback",
+                "detail": str(exc),
+            }
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
@@ -76,10 +88,16 @@ def gemini_chat(payload: GeminiChatRequest):
             question=payload.question,
             history=[message.model_dump() for message in payload.history],
         )
-        return {"answer": answer}
+        return {"answer": answer, "mode": "gemini"}
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except RuntimeError as exc:
+        if is_transient_gemini_error(exc):
+            return {
+                "answer": build_fallback_chat_answer(payload.analysis, payload.question),
+                "mode": "fallback",
+                "detail": str(exc),
+            }
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
