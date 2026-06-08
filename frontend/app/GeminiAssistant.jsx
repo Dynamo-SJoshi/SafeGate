@@ -114,8 +114,12 @@ export default function GeminiAssistant({ analysis, analysisKey, title }) {
       <h3>{title}</h3>
       <p>Gemini explains the technical data in plain English, in at most 2 lines.</p>
       <div className="geminiActions">
-        <button type="button" onClick={requestExplain}>
-          Explain with Gemini
+        <button type="button" onClick={requestExplain} className="ui-btn-gemini">
+          <div className="button-glow"></div>
+          <div className="button-content">
+            <span className="sparkle">✦</span>
+            <span>Explain with Gemini</span>
+          </div>
         </button>
         <span className="geminiState">State: {explainState}</span>
       </div>
@@ -146,7 +150,13 @@ export default function GeminiAssistant({ analysis, analysisKey, title }) {
             onChange={(event) => setChatInput(event.target.value)}
             placeholder="Why is this file suspicious?"
           />
-          <button type="submit">Ask Gemini</button>
+          <button type="submit" className="ui-btn-gemini">
+            <div className="button-glow"></div>
+            <div className="button-content">
+              <span className="sparkle">✦</span>
+              <span>Ask Gemini</span>
+            </div>
+          </button>
         </form>
         <p className="geminiState">Chat state: {chatState}</p>
         {chatMessages.length ? (

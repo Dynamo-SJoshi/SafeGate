@@ -34,7 +34,7 @@ def explain_analysis_with_gemini(analysis: dict[str, Any]) -> str:
         "Return exactly 2 lines.\n"
         "Line 1 must start with 'Summary:' and describe what the file/link appears to be.\n"
         "Line 2 must start with 'Advice:' and say if it looks safe, suspicious, or still pending, with a short reason.\n"
-        "Do not use bullets or extra lines."
+        "Do not use bullets or extra lines. Ensure you write complete, fully finished sentences. Do not leave quotes or statements unfinished."
     )
     analysis_block = _compact_analysis(analysis)
     raw_text = _generate_text(prompt=prompt, analysis_block=analysis_block)
@@ -53,7 +53,7 @@ def ask_gemini_about_analysis(
         "Answer the user's related doubt using simple terms in exactly 2 lines.",
         "Line 1 must start with 'Summary:' and answer directly.",
         "Line 2 must start with 'Advice:' and add one short follow-up reason or next step.",
-        "Do not use bullets. Do not mention that you are an AI model.",
+        "Do not use bullets. Do not mention that you are an AI model. Ensure you write complete, fully finished sentences. Do not leave quotes or statements unfinished.",
         "If the analysis does not contain enough information, say that briefly and clearly.",
         "",
         "SAFEGATE ANALYSIS:",
@@ -82,10 +82,49 @@ def build_fallback_chat_answer(analysis: dict[str, Any], question: str) -> str:
     return "\n".join([summary, advice])
 
 
+import threading
+
+_keys_lock = threading.Lock()
+_api_keys_queue: list[str] = []
+_keys_initialized = False
+
+
+def _initialize_keys() -> None:
+    global _keys_initialized, _api_keys_queue
+    with _keys_lock:
+        if _keys_initialized:
+            return
+        
+        # Check GEMINI_API_KEYS, GEMINI_API_KEY, or GOOGLE_API_KEY (comma separated)
+        keys_str = os.getenv("GEMINI_API_KEYS") or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if keys_str:
+            _api_keys_queue = [k.strip("'\" \t\r\n") for k in keys_str.split(",") if k.strip("'\" \t\r\n")]
+        
+        _keys_initialized = True
+
+
+def _get_keys_list() -> list[str]:
+    _initialize_keys()
+    with _keys_lock:
+        return list(_api_keys_queue)
+
+
+def _move_key_to_end(key: str) -> None:
+    with _keys_lock:
+        if key in _api_keys_queue:
+            _api_keys_queue.remove(key)
+            _api_keys_queue.append(key)
+
+
 def _generate_text(*, prompt: str, analysis_block: str | None) -> str:
-    api_key = _get_api_key()
+    keys = _get_keys_list()
+    if not keys:
+        raise ValueError(
+            "No API keys configured. Set GEMINI_API_KEYS (comma-separated) or GEMINI_API_KEY in backend/.env"
+        )
+
     model = os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
-    url = f"{GEMINI_API_BASE}/{urllib.parse.quote(model, safe='')}:generateContent"
+    base_url = f"{GEMINI_API_BASE}/{urllib.parse.quote(model, safe='')}:generateContent"
 
     if analysis_block:
         prompt = f"{prompt}\n\nANALYSIS JSON:\n{analysis_block}"
@@ -99,48 +138,80 @@ def _generate_text(*, prompt: str, analysis_block: str | None) -> str:
         ],
         "generationConfig": {
             "temperature": 0.2,
-            "maxOutputTokens": 120,
+            "maxOutputTokens": 512,
         },
+        "safetySettings": [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_NONE",
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_NONE",
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_NONE",
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_NONE",
+            },
+        ],
     }
 
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "x-goog-api-key": api_key,
-        },
-    )
-
-    response_data = None
     last_error: Exception | None = None
-    for attempt in range(2):
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                response_data = json.loads(response.read().decode("utf-8"))
-            break
-        except urllib.error.HTTPError as exc:
-            error_text = exc.read().decode("utf-8", errors="ignore")
-            last_error = RuntimeError(f"Gemini API request failed with HTTP {exc.code}: {error_text}")
-            if exc.code not in {429, 503} or attempt == 1:
-                raise last_error from exc
-            time.sleep(0.8 * (attempt + 1))
-        except urllib.error.URLError as exc:
-            last_error = RuntimeError(f"Gemini API request failed: {exc.reason}")
-            if attempt == 1:
-                raise last_error from exc
-            time.sleep(0.8 * (attempt + 1))
-        except json.JSONDecodeError as exc:
-            raise RuntimeError("Gemini API returned invalid JSON.") from exc
 
-    if response_data is None and last_error is not None:
+    for api_key in keys:
+        url_with_key = f"{base_url}?key={urllib.parse.quote(api_key)}"
+        request = urllib.request.Request(
+            url_with_key,
+            data=json.dumps(payload).encode("utf-8"),
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+            },
+        )
+
+        response_data = None
+        for attempt in range(2):
+            try:
+                with urllib.request.urlopen(request, timeout=30) as response:
+                    response_data = json.loads(response.read().decode("utf-8"))
+                
+                text = _extract_text(response_data)
+                if not text:
+                    raise RuntimeError("Gemini API returned no usable text.")
+                return text
+                
+            except urllib.error.HTTPError as exc:
+                error_text = exc.read().decode("utf-8", errors="ignore")
+                last_error = RuntimeError(f"Gemini API request failed with HTTP {exc.code}: {error_text}")
+                
+                if exc.code in {429, 503}:
+                    # Move this rate-limited key to the end of the queue
+                    _move_key_to_end(api_key)
+                    # Try next key
+                    break
+                
+                # For other errors, try the next key immediately
+                break
+                
+            except urllib.error.URLError as exc:
+                last_error = RuntimeError(f"Gemini API request failed: {exc.reason}")
+                if attempt == 1:
+                    # Move to end on network failure
+                    _move_key_to_end(api_key)
+                    break
+                time.sleep(0.5 * (attempt + 1))
+                
+            except json.JSONDecodeError as exc:
+                last_error = RuntimeError("Gemini API returned invalid JSON.")
+                break
+
+    if last_error is not None:
         raise last_error
-
-    text = _extract_text(response_data)
-    if not text:
-        raise RuntimeError("Gemini API returned no usable text.")
-    return text
+    raise RuntimeError("All configured Gemini API keys failed.")
 
 
 def _extract_text(response_data: dict[str, Any]) -> str:
@@ -152,15 +223,6 @@ def _extract_text(response_data: dict[str, Any]) -> str:
         if texts:
             return "\n".join(texts).strip()
     return ""
-
-
-def _get_api_key() -> str:
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "GEMINI_API_KEY is not set. Add it to backend/.env or the backend terminal before starting SafeGate."
-        )
-    return api_key.strip()
 
 
 def _compact_analysis(analysis: dict[str, Any]) -> str:

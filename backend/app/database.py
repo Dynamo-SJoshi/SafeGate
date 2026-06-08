@@ -40,7 +40,9 @@ ALTER TABLE uploads
     ADD COLUMN IF NOT EXISTS source_kind TEXT NOT NULL DEFAULT 'upload',
     ADD COLUMN IF NOT EXISTS source_state TEXT NOT NULL DEFAULT 'direct_file',
     ADD COLUMN IF NOT EXISTS selected_candidate_url TEXT,
-    ADD COLUMN IF NOT EXISTS candidate_urls JSONB NOT NULL DEFAULT '[]'::jsonb;
+    ADD COLUMN IF NOT EXISTS candidate_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS client_ip TEXT,
+    ADD COLUMN IF NOT EXISTS static_analysis JSONB NOT NULL DEFAULT '{}'::jsonb;
 """
 
 
@@ -88,6 +90,8 @@ def save_upload_record(
     source_state: str = "direct_file",
     selected_candidate_url: str | None = None,
     candidate_urls: list[str] | None = None,
+    client_ip: str | None = None,
+    static_analysis: dict[str, object] | None = None,
 ) -> None:
     claimed_content_type = str(fingerprint["claimed_content_type"])
     detected_content_type = str(fingerprint["detected_content_type"])
@@ -121,7 +125,9 @@ def save_upload_record(
                     source_kind,
                     source_state,
                     selected_candidate_url,
-                    candidate_urls
+                    candidate_urls,
+                    client_ip,
+                    static_analysis
                 )
                 VALUES (
                     %(upload_id)s,
@@ -142,7 +148,9 @@ def save_upload_record(
                     %(source_kind)s,
                     %(source_state)s,
                     %(selected_candidate_url)s,
-                    %(candidate_urls)s
+                    %(candidate_urls)s,
+                    %(client_ip)s,
+                    %(static_analysis)s
                 )
                 ON CONFLICT (upload_id)
                 DO UPDATE SET
@@ -163,7 +171,9 @@ def save_upload_record(
                     source_kind = EXCLUDED.source_kind,
                     source_state = EXCLUDED.source_state,
                     selected_candidate_url = EXCLUDED.selected_candidate_url,
-                    candidate_urls = EXCLUDED.candidate_urls
+                    candidate_urls = EXCLUDED.candidate_urls,
+                    client_ip = EXCLUDED.client_ip,
+                    static_analysis = EXCLUDED.static_analysis
                 """,
                 {
                     "upload_id": upload_id,
@@ -185,6 +195,8 @@ def save_upload_record(
                     "source_state": source_state,
                     "selected_candidate_url": selected_candidate_url,
                     "candidate_urls": Jsonb(candidate_urls or []),
+                    "client_ip": client_ip,
+                    "static_analysis": Jsonb(static_analysis or {}),
                 },
             )
 
@@ -216,6 +228,8 @@ def get_upload_record(upload_id: str) -> dict[str, object] | None:
                     source_state,
                     selected_candidate_url,
                     candidate_urls,
+                    client_ip,
+                    static_analysis,
                     created_at
                 FROM uploads
                 WHERE upload_id = %s

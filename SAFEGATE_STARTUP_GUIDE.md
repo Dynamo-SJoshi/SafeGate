@@ -19,9 +19,37 @@ I will keep this guide updated as the project workflow changes.
 
 ---
 
-## 2. Prerequisites
+## 2. Quick Start with Docker (Recommended)
 
-Make sure these are installed on the laptop:
+Now that SafeGate has been dockerized, you can start both the backend and frontend services with a single command:
+
+### Steps
+1. Make sure **Docker Desktop** is open and running on your machine.
+2. Open a terminal/Command Prompt and go to the project root:
+   ```cmd
+   cd C:\Users\DELL\Downloads\SafeGate
+   ```
+3. Start the containers using:
+   ```cmd
+   docker compose up --build
+   ```
+   *(Note: You can omit `--build` on subsequent runs unless you have changed dependencies or configuration files. If you prefer to run in the background/detached mode, run `docker compose up -d`)*
+
+### Accessing the Applications
+* **Frontend**: Open `http://localhost:3000` in your browser.
+* **Backend Health**: Open `http://localhost:8000/health` (should return `{"status":"ok","service":"safegate-api"}`).
+
+### Stopping the Services
+To stop the services and remove the containers, run:
+```cmd
+docker compose down
+```
+
+---
+
+## 3. Prerequisites (For running locally without Docker)
+
+Make sure these are installed on the laptop if you choose to run outside of containers:
 
 - Git
 - Node.js and npm
@@ -31,90 +59,48 @@ Make sure these are installed on the laptop:
 - FFmpeg / ffprobe
 - ClamAV
 - YARA
-- Docker Desktop if you want Redis later
 
 If you are using the tools from the current setup, they already exist on this machine.
 
 ---
 
-## 3. Project folder
+## 4. Running Locally without Docker
 
+If you prefer to run the services individually on your host machine instead of using Docker, follow these steps:
+
+### Step 4.1: Open the Project folder
 Open Command Prompt and go to:
-
 ```cmd
 cd C:\Users\DELL\Downloads\SafeGate
 ```
 
----
+### Step 4.2: Start the Backend
+1. **Activate the virtual environment**:
+   ```cmd
+   .venv\Scripts\activate
+   ```
+2. **Set PostgreSQL connection string**:
+   ```cmd
+   set DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/postgres
+   ```
+   *(Replace `YOUR_PASSWORD` with your real PostgreSQL password)*
+3. **Install backend dependencies if needed**:
+   ```cmd
+   python -m pip install -r backend\requirements.txt
+   ```
+4. **Run the backend**:
+   ```cmd
+   uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+   ```
 
-## 4. Start the backend
-
-The backend needs the Python virtual environment and the PostgreSQL connection string.
-
-### Step 4.1: Activate the virtual environment
-
-```cmd
-.venv\Scripts\activate
-```
-
-### Step 4.2: Set PostgreSQL connection string
-
-```cmd
-set DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/postgres
-```
-
-Replace `YOUR_PASSWORD` with your real PostgreSQL password.
-
-### Step 4.3: Install backend dependencies if needed
-
-```cmd
-python -m pip install -r backend\requirements.txt
-```
-
-### Step 4.4: Run the backend
-
-```cmd
-uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-### Step 4.5: Check backend health
-
-Open:
-
-```text
-http://127.0.0.1:8000/health
-```
-
-Expected response:
-
-```json
-{"status":"ok","service":"safegate-api"}
-```
-
----
-
-## 5. Start the frontend
-
-Open a second Command Prompt window and go to the frontend folder:
-
+### Step 4.3: Start the Frontend
+Open a second Command Prompt window and run:
 ```cmd
 cd C:\Users\DELL\Downloads\SafeGate\frontend
-```
-
-Then run:
-
-```cmd
 npm run dev
 ```
 
-Open the app in the browser:
-
-```text
-http://127.0.0.1:3000
-```
-
 The frontend will show:
-
 - backend health
 - link analysis form
 - file upload fallback
@@ -123,7 +109,7 @@ The frontend will show:
 
 ---
 
-## 6. How the frontend and backend connect
+## 5. How the frontend and backend connect
 
 ### Frontend health check
 
@@ -169,7 +155,7 @@ http://127.0.0.1:8000/upload
 
 ---
 
-## 7. How the URL flow works
+## 6. How the URL flow works
 
 Current URL analysis logic:
 
@@ -191,7 +177,7 @@ Useful result states:
 
 ---
 
-## 8. How the file upload flow works
+## 7. How the file upload flow works
 
 Current upload logic:
 
@@ -204,7 +190,7 @@ Current upload logic:
 
 ---
 
-## 9. PostgreSQL commands
+## 8. PostgreSQL commands
 
 ### Open PostgreSQL shell
 
@@ -239,7 +225,7 @@ Quit PostgreSQL:
 
 ---
 
-## 10. GitHub workflow
+## 9. GitHub workflow
 
 When you make changes:
 
@@ -258,7 +244,7 @@ git commit -m "docs: update startup guide"
 
 ---
 
-## 11. Common startup checklist
+## 10. Common startup checklist
 
 Before testing SafeGate:
 
@@ -272,7 +258,7 @@ Before testing SafeGate:
 
 ---
 
-## 12. Common errors and what they mean
+## 11. Common errors and what they mean
 
 ### `DATABASE_URL is not set`
 
@@ -308,7 +294,7 @@ The remote file is larger than the current safe fetch limit.
 
 ---
 
-## 13. Current development direction
+## 12. Current development direction
 
 SafeGate is moving toward:
 
@@ -322,7 +308,7 @@ SafeGate is moving toward:
 
 ---
 
-## 14. What to do next after the current setup
+## 13. What to do next after the current setup
 
 Recommended next steps:
 
@@ -334,7 +320,7 @@ Recommended next steps:
 
 ---
 
-## 15. Latest URL flow behavior
+## 14. Latest URL flow behavior
 
 When a pasted URL points to a landing page, SafeGate will:
 

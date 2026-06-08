@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import tempfile
+from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
 from urllib.parse import urlparse
@@ -22,10 +24,28 @@ from .gemini import (
 )
 from .previewing import build_preview
 from .url_fetching import fetch_remote_source
+from .cleanup import cleanup_loop
+from .clamav_scanner import scan_file_with_clamav
+from .yara_scanner import scan_file_with_yara
+from .exif_scanner import extract_metadata_with_exiftool
 
 load_local_env_files()
 
-app = FastAPI(title="SafeGate API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start the background cleanup task on startup (runs every 5 minutes by default)
+    cleanup_task = asyncio.create_task(cleanup_loop())
+    yield
+    # Cancel the task on shutdown
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
+
+
+app = FastAPI(title="SafeGate API", version="0.1.0", lifespan=lifespan)
 
 UPLOAD_ROOT = Path(tempfile.gettempdir()) / "safegate" / "uploads"
 REMOTE_ROOT = Path(tempfile.gettempdir()) / "safegate" / "remote"
@@ -101,9 +121,25 @@ def gemini_chat(payload: GeminiChatRequest):
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+def get_client_ip(request: Request) -> str:
+    """
+    Extract the client IP address from proxy headers (if present) or fallback to request.client.host.
+    """
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+        
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        return real_ip
+        
+    return request.client.host if request.client else "unknown"
+
+
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(request: Request, file: UploadFile = File(...)):
     upload_id = str(uuid4())
+    client_ip = get_client_ip(request)
     try:
         if not file.filename:
             raise HTTPException(status_code=400, detail="Missing filename.")
@@ -116,14 +152,16 @@ async def upload_file(file: UploadFile = File(...)):
             original_filename=file.filename,
             content_type=file.content_type or "application/octet-stream",
             source_kind="upload",
+            client_ip=client_ip,
         )
     finally:
         await file.close()
 
 
 @app.post("/analyze-url")
-def analyze_url(payload: UrlAnalyzeRequest):
+def analyze_url(payload: UrlAnalyzeRequest, request: Request):
     upload_id = str(uuid4())
+    client_ip = get_client_ip(request)
 
     try:
         remote_fetch = fetch_remote_source(
@@ -169,7 +207,12 @@ def preview_upload(payload: PreviewRequest, request: Request):
         fingerprint=dict(record["fingerprint"]),
     )
     if preview.preview_kind == "renderable-file":
-        preview.preview_url = str(request.url_for("preview_file", upload_id=str(record["upload_id"])))
+        import os
+        public_url = os.environ.get("PUBLIC_BACKEND_URL")
+        if public_url:
+            preview.preview_url = f"{public_url.rstrip('/')}/preview/{record['upload_id']}/file"
+        else:
+            preview.preview_url = str(request.url_for("preview_file", upload_id=str(record["upload_id"])))
     return preview.to_dict()
 
 
@@ -249,15 +292,43 @@ def _analyze_and_store_file(
     candidate_urls: list[str] | None = None,
     candidate_details: list[dict[str, object]] | None = None,
     notes: list[str] | None = None,
+    client_ip: str | None = None,
 ) -> dict[str, object]:
     size_bytes = stored_path.stat().st_size
-    sha256 = hashlib.sha256(stored_path.read_bytes()).hexdigest()
+    
+    sha256_hash = hashlib.sha256()
+    with stored_path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            sha256_hash.update(chunk)
+    sha256 = sha256_hash.hexdigest()
 
     fingerprint = fingerprint_file(
         file_path=stored_path,
         claimed_filename=original_filename,
         claimed_content_type=content_type,
     )
+
+    # Run Static Anti-Malware Analyzers
+    clamav_res = scan_file_with_clamav(stored_path)
+    yara_res = scan_file_with_yara(stored_path)
+    exif_res = extract_metadata_with_exiftool(stored_path)
+
+    static_analysis = {
+        "clamav": clamav_res,
+        "yara": yara_res,
+        "exiftool": exif_res
+    }
+
+    # Compute analysis_state
+    fingerprint_dict = fingerprint.to_dict()
+    match_status = fingerprint_dict.get("match_status", "unknown")
+
+    if clamav_res.get("verdict") == "infected":
+        analysis_state = "malicious"
+    elif yara_res.get("verdict") == "suspicious" or match_status == "mismatch":
+        analysis_state = "suspicious"
+    else:
+        analysis_state = "clean"
 
     try:
         save_upload_record(
@@ -267,13 +338,15 @@ def _analyze_and_store_file(
             content_type=content_type,
             size_bytes=size_bytes,
             sha256=sha256,
-            fingerprint=fingerprint.to_dict(),
-            analysis_state="pending",
+            fingerprint=fingerprint_dict,
+            analysis_state=analysis_state,
             source_url=source_url,
             source_kind=source_kind,
             source_state=source_state,
             selected_candidate_url=selected_candidate_url,
             candidate_urls=candidate_urls,
+            client_ip=client_ip,
+            static_analysis=static_analysis,
         )
     except Exception as exc:
         if stored_path.exists():
@@ -290,8 +363,9 @@ def _analyze_and_store_file(
         "content_type": content_type,
         "size_bytes": size_bytes,
         "sha256": sha256,
-        "fingerprint": fingerprint.to_dict(),
-        "analysis_state": "pending",
+        "fingerprint": fingerprint_dict,
+        "analysis_state": analysis_state,
+        "static_analysis": static_analysis,
         "database_state": "saved",
         "source_kind": source_kind,
         "source_state": source_state,

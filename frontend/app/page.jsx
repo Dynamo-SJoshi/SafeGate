@@ -1,7 +1,115 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import GeminiAssistant from "./GeminiAssistant";
+
+function renderStaticAnalysis(result) {
+  if (!result) return null;
+  const state = result.analysis_state || "pending";
+  const staticRes = result.static_analysis || {};
+  const clamav = staticRes.clamav || {};
+  const yara = staticRes.yara || {};
+  const exif = staticRes.exiftool || {};
+
+  let badgeColor = "var(--warn)";
+  let badgeLabel = "Pending";
+  if (state === "clean") {
+    badgeColor = "var(--good)";
+    badgeLabel = "Clean";
+  } else if (state === "suspicious") {
+    badgeColor = "var(--warn)";
+    badgeLabel = "Suspicious";
+  } else if (state === "malicious") {
+    badgeColor = "var(--bad)";
+    badgeLabel = "Malicious";
+  }
+
+  const exifMetadata = exif.status === "success" && exif.metadata ? exif.metadata : null;
+  const exifKeys = exifMetadata ? Object.keys(exifMetadata).slice(0, 15) : [];
+
+  return (
+    <div className="fingerprintSummary">
+      <h3>Analysis Verdict</h3>
+      <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "16px" }}>
+        <span
+          className="badge"
+          style={{
+            backgroundColor: badgeColor,
+            color: "#08111f",
+            fontWeight: "bold",
+            padding: "6px 14px",
+            borderRadius: "12px",
+            fontSize: "0.95rem"
+          }}
+        >
+          {badgeLabel.toUpperCase()}
+        </span>
+        <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+          SHA256: {result.sha256 ? `${result.sha256.substring(0, 16)}...` : "N/A"}
+        </span>
+      </div>
+
+      <div className="staticAnalyzersGrid" style={{ display: "grid", gap: "16px", marginTop: "12px" }}>
+        {/* ClamAV */}
+        <div className="analyzerCard" style={{ border: "1px solid var(--panel-border)", padding: "12px", borderRadius: "12px", background: "rgba(255,255,255,0.02)" }}>
+          <h4 style={{ margin: "0 0 8px 0", color: "var(--accent)" }}>ClamAV Antivirus</h4>
+          <p style={{ margin: 0 }}>
+            Verdict: <strong style={{ color: clamav.verdict === "infected" ? "var(--bad)" : "inherit" }}>
+              {clamav.verdict ? clamav.verdict.toUpperCase() : "NOT RUN"}
+            </strong>
+          </p>
+          {clamav.details && <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--muted)" }}>{clamav.details}</p>}
+        </div>
+
+        {/* YARA */}
+        <div className="analyzerCard" style={{ border: "1px solid var(--panel-border)", padding: "12px", borderRadius: "12px", background: "rgba(255,255,255,0.02)" }}>
+          <h4 style={{ margin: "0 0 8px 0", color: "var(--accent)" }}>YARA Signatures</h4>
+          <p style={{ margin: 0 }}>
+            Verdict: <strong>{yara.verdict ? yara.verdict.toUpperCase() : "NOT RUN"}</strong>
+          </p>
+          {yara.details && <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--muted)" }}>{yara.details}</p>}
+          {yara.matches && yara.matches.length > 0 && (
+            <div style={{ marginTop: "8px" }}>
+              <p style={{ margin: "0 0 4px 0", fontSize: "0.85rem", fontWeight: "bold" }}>Matches:</p>
+              <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "0.85rem" }}>
+                {yara.matches.map((m, idx) => (
+                  <li key={idx} style={{ color: "var(--bad)" }}>
+                    Rule: <code>{m.rule}</code> {m.meta?.description ? `- ${m.meta.description}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* ExifTool Metadata */}
+        {exifMetadata && (
+          <div className="analyzerCard" style={{ border: "1px solid var(--panel-border)", padding: "12px", borderRadius: "12px", background: "rgba(255,255,255,0.02)" }}>
+            <h4 style={{ margin: "0 0 8px 0", color: "var(--accent)" }}>ExifTool Metadata</h4>
+            <div style={{ maxHeight: "200px", overflowY: "auto", fontSize: "0.85rem" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <tbody>
+                  {exifKeys.map((key) => (
+                    <tr key={key} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                      <td style={{ padding: "4px 8px 4px 0", color: "var(--muted)", fontWeight: "bold" }}>{key}</td>
+                      <td style={{ padding: "4px 0", wordBreak: "break-all" }}>{String(exifMetadata[key])}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {Object.keys(exifMetadata).length > 15 && (
+                <p style={{ margin: "8px 0 0 0", fontSize: "0.8rem", color: "var(--muted)", fontStyle: "italic" }}>
+                  Showing first 15 of {Object.keys(exifMetadata).length} metadata fields.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function HomePage() {
   const [health, setHealth] = useState("checking");
@@ -255,11 +363,10 @@ export default function HomePage() {
         </p>
 
         <div className="statusCard">
-          <div className="statusHeader">
+          <div className="statusHeader" style={{ marginBottom: 0 }}>
             <span className={`dot ${health}`} />
             <span>Backend status: {health}</span>
           </div>
-          <pre>{JSON.stringify(details, null, 2)}</pre>
         </div>
 
         <form className="uploadCard" onSubmit={handleAnalyzeUrl}>
@@ -285,7 +392,7 @@ export default function HomePage() {
           {urlResult?.upload_id ? (
             <button
               type="button"
-              className="cevorobButton previewButton"
+              className="ui-btn previewButton"
               onClick={() => loadPreview(urlResult.upload_id, setUrlPreviewState, setUrlPreviewResult)}
             >
               <span>Load Safe Preview</span>
@@ -295,7 +402,7 @@ export default function HomePage() {
             <div className="detailsToggle">
               <button
                 type="button"
-                className="cevorobButton detailButton detailsToggleButton"
+                className="ui-btn detailButton detailsToggleButton"
                 onClick={() => setUrlDetailsOpen((previous) => !previous)}
               >
                 <span>{urlDetailsOpen ? "Hide details" : "View more details"}</span>
@@ -411,6 +518,7 @@ export default function HomePage() {
               ) : null}
             </div>
           ) : null}
+          {renderStaticAnalysis(urlResult)}
           {urlResult?.fingerprint ? (
             <div className="fingerprintSummary">
               <h3>Fingerprint summary</h3>
@@ -478,7 +586,7 @@ export default function HomePage() {
           {uploadResult?.upload_id ? (
             <button
               type="button"
-              className="cevorobButton previewButton"
+              className="ui-btn previewButton"
               onClick={() => loadPreview(uploadResult.upload_id, setUploadPreviewState, setUploadPreviewResult)}
             >
               <span>Load Safe Preview</span>
@@ -488,7 +596,7 @@ export default function HomePage() {
             <div className="detailsToggle">
               <button
                 type="button"
-                className="cevorobButton detailButton detailsToggleButton"
+                className="ui-btn detailButton detailsToggleButton"
                 onClick={() => setUploadDetailsOpen((previous) => !previous)}
               >
                 <span>{uploadDetailsOpen ? "Hide details" : "View more details"}</span>
@@ -496,6 +604,7 @@ export default function HomePage() {
               {uploadDetailsOpen ? <pre>{JSON.stringify(uploadResult, null, 2)}</pre> : null}
             </div>
           ) : null}
+          {renderStaticAnalysis(uploadResult)}
           {uploadResult?.fingerprint ? (
             <div className="fingerprintSummary">
               <h3>Fingerprint summary</h3>
@@ -565,6 +674,29 @@ export default function HomePage() {
           </ul>
         </article>
       </section>
+
+      <footer style={{
+        marginTop: "40px",
+        padding: "24px 0",
+        borderTop: "1px solid var(--panel-border)",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: "12px",
+        color: "var(--muted)",
+        fontSize: "0.9rem"
+      }}>
+        <span>&copy; {new Date().getFullYear()} SafeGate. All rights reserved.</span>
+        <div style={{ display: "flex", gap: "20px" }}>
+          <Link href="/terms" style={{ color: "var(--muted)", textDecoration: "none" }}>
+            Terms of Service
+          </Link>
+          <Link href="/privacy" style={{ color: "var(--muted)", textDecoration: "none" }}>
+            Privacy Policy
+          </Link>
+        </div>
+      </footer>
     </main>
   );
 }
