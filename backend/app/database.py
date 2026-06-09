@@ -42,7 +42,8 @@ ALTER TABLE uploads
     ADD COLUMN IF NOT EXISTS selected_candidate_url TEXT,
     ADD COLUMN IF NOT EXISTS candidate_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
     ADD COLUMN IF NOT EXISTS client_ip TEXT,
-    ADD COLUMN IF NOT EXISTS static_analysis JSONB NOT NULL DEFAULT '{}'::jsonb;
+    ADD COLUMN IF NOT EXISTS static_analysis JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS candidate_details JSONB NOT NULL DEFAULT '[]'::jsonb;
 """
 
 
@@ -92,6 +93,7 @@ def save_upload_record(
     candidate_urls: list[str] | None = None,
     client_ip: str | None = None,
     static_analysis: dict[str, object] | None = None,
+    candidate_details: list[dict[str, Any]] | None = None,
 ) -> None:
     claimed_content_type = str(fingerprint["claimed_content_type"])
     detected_content_type = str(fingerprint["detected_content_type"])
@@ -127,7 +129,8 @@ def save_upload_record(
                     selected_candidate_url,
                     candidate_urls,
                     client_ip,
-                    static_analysis
+                    static_analysis,
+                    candidate_details
                 )
                 VALUES (
                     %(upload_id)s,
@@ -150,7 +153,8 @@ def save_upload_record(
                     %(selected_candidate_url)s,
                     %(candidate_urls)s,
                     %(client_ip)s,
-                    %(static_analysis)s
+                    %(static_analysis)s,
+                    %(candidate_details)s
                 )
                 ON CONFLICT (upload_id)
                 DO UPDATE SET
@@ -173,7 +177,8 @@ def save_upload_record(
                     selected_candidate_url = EXCLUDED.selected_candidate_url,
                     candidate_urls = EXCLUDED.candidate_urls,
                     client_ip = EXCLUDED.client_ip,
-                    static_analysis = EXCLUDED.static_analysis
+                    static_analysis = EXCLUDED.static_analysis,
+                    candidate_details = EXCLUDED.candidate_details
                 """,
                 {
                     "upload_id": upload_id,
@@ -197,6 +202,7 @@ def save_upload_record(
                     "candidate_urls": Jsonb(candidate_urls or []),
                     "client_ip": client_ip,
                     "static_analysis": Jsonb(static_analysis or {}),
+                    "candidate_details": Jsonb(candidate_details or []),
                 },
             )
 
@@ -230,6 +236,7 @@ def get_upload_record(upload_id: str) -> dict[str, object] | None:
                     candidate_urls,
                     client_ip,
                     static_analysis,
+                    candidate_details,
                     created_at
                 FROM uploads
                 WHERE upload_id = %s

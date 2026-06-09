@@ -350,25 +350,59 @@ def _download_file(
 
 def _rank_candidate_urls(candidate_urls: list[str], base_url: str) -> list[CandidateLinkInfo]:
     scored_candidates: list[CandidateLinkInfo] = []
+    
+    executables = (".exe", ".msi", ".apk", ".dmg", ".pkg", ".deb", ".rpm", ".bat", ".cmd", ".sh", ".bin", ".run")
+    archives = (".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz", ".iso", ".img")
+    documents = (".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt", ".rtf", ".txt", ".csv", ".epub")
+    videos = (".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".mpeg")
+    audios = (".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a")
+    images = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".tiff")
+    webpages = (".html", ".htm", ".php", ".asp", ".aspx", ".jsp")
+
     for candidate_url in candidate_urls:
         score = 0
         reasons: list[str] = []
-        lowered = candidate_url.lower()
+        lowered = candidate_url.lower().split("?", 1)[0].split("#", 1)[0]
+        
+        if lowered.endswith(executables):
+            score += 50
+            reasons.append("executable-priority")
+        elif lowered.endswith(archives):
+            score += 40
+            reasons.append("archive-priority")
+        elif lowered.endswith(documents):
+            score += 30
+            reasons.append("document-priority")
+        elif lowered.endswith(videos):
+            score += 20
+            reasons.append("video-priority")
+        elif lowered.endswith(audios):
+            score += 15
+            reasons.append("audio-priority")
+        elif lowered.endswith(images):
+            score += 10
+            reasons.append("image-priority")
+        elif lowered.endswith(webpages):
+            score -= 5
+            reasons.append("webpage-low-priority")
+
+        lowered_full = candidate_url.lower()
         if looks_like_download_url(candidate_url):
             score += 3
             reasons.append("download-extension")
-        if any(keyword in lowered for keyword in ("download", "dl", "file", "server", "media")):
+        if any(keyword in lowered_full for keyword in ("download", "dl", "file", "server", "media")):
             score += 2
             reasons.append("download-keyword")
         if candidate_url.startswith(base_url):
             score += 1
             reasons.append("same-base-url")
-        if any(keyword in lowered for keyword in ("play", "stream", "watch")):
+        if any(keyword in lowered_full for keyword in ("play", "stream", "watch")):
             score -= 1
             reasons.append("streaming-language")
-        if any(keyword in lowered for keyword in ("html", "htm", "php", "asp", "aspx")) and not looks_like_download_url(candidate_url):
+        if any(keyword in lowered_full for keyword in ("html", "htm", "php", "asp", "aspx")) and not looks_like_download_url(candidate_url):
             score -= 1
             reasons.append("page-like-url")
+            
         scored_candidates.append(CandidateLinkInfo(url=candidate_url, score=score, reasons=reasons))
 
     scored_candidates.sort(key=lambda item: (item.score, len(item.reasons), item.url), reverse=True)

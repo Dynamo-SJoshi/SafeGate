@@ -391,6 +391,7 @@ def _analyze_and_store_file(
             candidate_urls=candidate_urls,
             client_ip=client_ip,
             static_analysis=static_analysis,
+            candidate_details=candidate_details,
         )
         # Enqueue the background scanning task
         scan_queue.put_nowait(upload_id)

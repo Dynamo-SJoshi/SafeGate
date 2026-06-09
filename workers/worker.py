@@ -87,6 +87,7 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
         candidate_urls=record.get("candidate_urls"),
         client_ip=record.get("client_ip"),
         static_analysis=static_analysis,
+        candidate_details=record.get("candidate_details"),
     )
     
     logger.info(f"Successfully processed scan job: {upload_id}")
