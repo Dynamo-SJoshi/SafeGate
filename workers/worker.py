@@ -35,7 +35,27 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
     stored_path = resolve_stored_path(record)
     if not stored_path.exists():
         logger.error(f"Stored file not found for scanning: {stored_path}")
-        return None
+        save_upload_record(
+            upload_id=upload_id,
+            original_filename=str(record["original_filename"]),
+            stored_filename=stored_path.name,
+            content_type=str(record["content_type"]),
+            size_bytes=int(record["size_bytes"]),
+            sha256=str(record["sha256"]),
+            fingerprint=dict(record["fingerprint"]),
+            analysis_state="error",
+            source_url=record.get("source_url"),
+            source_kind=str(record["source_kind"]),
+            source_state=str(record["source_state"]),
+            selected_candidate_url=record.get("selected_candidate_url"),
+            candidate_urls=record.get("candidate_urls"),
+            client_ip=record.get("client_ip"),
+            static_analysis={
+                "error": "Stored file was not found on disk. It may have been cleaned up or expired."
+            },
+            candidate_details=record.get("candidate_details"),
+        )
+        return get_upload_record(upload_id)
 
     # Run the actual analyzers
     logger.info(f"Running ClamAV scan on: {stored_path.name}")
