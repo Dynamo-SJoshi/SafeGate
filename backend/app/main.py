@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from .environment import load_local_env_files
-from .database import get_upload_record, save_upload_record
+from .database import get_upload_record, save_upload_record, db_connection
 from .fingerprinting import fingerprint_file
 from .gemini import (
     ask_gemini_about_analysis,
@@ -31,17 +31,60 @@ from .exif_scanner import extract_metadata_with_exiftool
 
 load_local_env_files()
 
+# Global scan queue
+scan_queue: asyncio.Queue[str] = asyncio.Queue()
+
+def get_pending_upload_ids() -> list[str]:
+    try:
+        with db_connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT upload_id FROM uploads WHERE analysis_state = 'pending'")
+                records = cursor.fetchall()
+                return [str(r["upload_id"]) for r in records]
+    except Exception as exc:
+        print(f"Error querying pending upload IDs on startup: {exc}")
+        return []
+
+async def resident_worker_loop():
+    """Loops indefinitely, processing scan jobs from the queue."""
+    from workers.worker import process_scan_job
+    print("Resident scan worker loop started.")
+    while True:
+        try:
+            upload_id = await scan_queue.get()
+            print(f"Worker picked up upload_id: {upload_id}")
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, process_scan_job, upload_id)
+            scan_queue.task_done()
+        except asyncio.CancelledError:
+            print("Resident scan worker loop cancelled.")
+            break
+        except Exception as exc:
+            print(f"Error in resident scan worker: {exc}")
+            await asyncio.sleep(1)
+
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Start the background cleanup task on startup (runs every 5 minutes by default)
     cleanup_task = asyncio.create_task(cleanup_loop())
+    # Start resident scan worker task
+    worker_task = asyncio.create_task(resident_worker_loop())
+    
+    # Enqueue existing pending tasks from database
+    pending_ids = get_pending_upload_ids()
+    print(f"Startup: Found {len(pending_ids)} pending scans to queue.")
+    for uid in pending_ids:
+        await scan_queue.put(uid)
+        
     yield
-    # Cancel the task on shutdown
+    # Cancel tasks on shutdown
     cleanup_task.cancel()
+    worker_task.cancel()
     try:
-        await cleanup_task
-    except asyncio.CancelledError:
+        await asyncio.gather(cleanup_task, worker_task, return_exceptions=True)
+    except Exception:
         pass
 
 
@@ -248,6 +291,14 @@ def preview_file(upload_id: str):
     )
 
 
+@app.get("/upload/{upload_id}")
+def get_upload_status(upload_id: str):
+    record = get_upload_record(upload_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Upload record not found.")
+    return record
+
+
 async def _save_uploaded_file(*, file: UploadFile, destination: Path) -> None:
     size_bytes = 0
 
@@ -309,9 +360,9 @@ def _analyze_and_store_file(
     )
 
     # Run Static Anti-Malware Analyzers
-    clamav_res = scan_file_with_clamav(stored_path)
-    yara_res = scan_file_with_yara(stored_path)
-    exif_res = extract_metadata_with_exiftool(stored_path)
+    clamav_res = {"verdict": "pending", "details": "Scan is pending."}
+    yara_res = {"verdict": "pending", "details": "Scan is pending."}
+    exif_res = {"status": "pending", "details": "Scan is pending."}
 
     static_analysis = {
         "clamav": clamav_res,
@@ -321,14 +372,7 @@ def _analyze_and_store_file(
 
     # Compute analysis_state
     fingerprint_dict = fingerprint.to_dict()
-    match_status = fingerprint_dict.get("match_status", "unknown")
-
-    if clamav_res.get("verdict") == "infected":
-        analysis_state = "malicious"
-    elif yara_res.get("verdict") == "suspicious" or match_status == "mismatch":
-        analysis_state = "suspicious"
-    else:
-        analysis_state = "clean"
+    analysis_state = "pending"
 
     try:
         save_upload_record(
@@ -348,6 +392,8 @@ def _analyze_and_store_file(
             client_ip=client_ip,
             static_analysis=static_analysis,
         )
+        # Enqueue the background scanning task
+        scan_queue.put_nowait(upload_id)
     except Exception as exc:
         if stored_path.exists():
             stored_path.unlink(missing_ok=True)

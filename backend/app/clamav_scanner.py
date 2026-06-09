@@ -33,4 +33,11 @@ def scan_file_with_clamav(file_path: Path) -> dict[str, object]:
             return {"verdict": "error", "details": f"ClamAV scan status: {status}"}
             
     except Exception as exc:
+        import socket
+        exc_str = str(exc).lower()
+        if isinstance(exc, (socket.timeout, TimeoutError)) or "timeout" in exc_str:
+            return {"verdict": "timeout", "details": "ClamAV scan timed out."}
+        elif isinstance(exc, ConnectionRefusedError) or "refused" in exc_str or "connection" in exc_str or "socket" in exc_str:
+            return {"verdict": "unavailable", "details": "ClamAV service is temporarily unavailable."}
         return {"verdict": "error", "details": f"ClamAV connection/scan error: {str(exc)}"}
+

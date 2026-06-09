@@ -247,6 +247,8 @@ def _compact_analysis(analysis: dict[str, Any]) -> str:
         "items",
         "text",
         "preview",
+        "error",
+        "detail",
     }
     compact = {key: analysis.get(key) for key in relevant_keys if key in analysis}
     text = json.dumps(compact, ensure_ascii=False, indent=2)
@@ -270,6 +272,13 @@ def _normalize_two_line_answer(text: str) -> str:
 
 
 def _local_summary_line(analysis: dict[str, Any], question: str | None = None) -> str:
+    error_msg = analysis.get("error") or analysis.get("detail")
+    if error_msg:
+        base = f"Summary: SafeGate encountered an error during analysis: {error_msg}."
+        if question:
+            base = f"{base} (Question: {question[:120]})"
+        return _ensure_prefix(base, "Summary:")
+
     source_kind = str(analysis.get("source_kind") or "file")
     source_state = str(analysis.get("source_state") or analysis.get("analysis_state") or "unknown")
     match_status = str((analysis.get("fingerprint") or {}).get("match_status") or "unknown")
@@ -294,6 +303,13 @@ def _local_summary_line(analysis: dict[str, Any], question: str | None = None) -
 
 
 def _local_advice_line(analysis: dict[str, Any], question: str | None = None) -> str:
+    error_msg = analysis.get("error") or analysis.get("detail")
+    if error_msg:
+        advice = "Advice: Review the error message. Verify that the URL is public, active, and contains a downloadable file."
+        if question and "safe" in question.lower():
+            advice = f"{advice} Safety cannot be determined due to the scan failure."
+        return _ensure_prefix(advice, "Advice:")
+
     source_state = str(analysis.get("source_state") or analysis.get("analysis_state") or "unknown")
     match_status = str((analysis.get("fingerprint") or {}).get("match_status") or "unknown")
     confidence = str((analysis.get("fingerprint") or {}).get("confidence") or "unknown")
@@ -314,6 +330,7 @@ def _local_advice_line(analysis: dict[str, Any], question: str | None = None) ->
     if question and "safe" in question.lower():
         advice = f"{advice} Safety depends on the source and analysis state."
     return _ensure_prefix(advice, "Advice:")
+
 
 
 def _ensure_prefix(text: str, prefix: str) -> str:

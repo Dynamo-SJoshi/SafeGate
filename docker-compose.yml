@@ -15,6 +15,10 @@ services:
     volumes:
       - ./backend:/app
       - /app/.venv # Ignore local virtual environment inside container
+      - ./analyzers:/app/analyzers
+      - ./workers:/app/workers
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./sandbox:/app/sandbox
     depends_on:
       - clamav
 

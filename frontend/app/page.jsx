@@ -5,12 +5,13 @@ import Link from "next/link";
 import GeminiAssistant from "./GeminiAssistant";
 
 function renderStaticAnalysis(result) {
-  if (!result) return null;
+  if (!result || result.error || result.detail) return null;
   const state = result.analysis_state || "pending";
   const staticRes = result.static_analysis || {};
   const clamav = staticRes.clamav || {};
   const yara = staticRes.yara || {};
   const exif = staticRes.exiftool || {};
+  const sandbox = staticRes.sandbox || null;
 
   let badgeColor = "var(--warn)";
   let badgeLabel = "Pending";
@@ -106,6 +107,48 @@ function renderStaticAnalysis(result) {
             </div>
           </div>
         )}
+
+        {/* Dynamic Sandbox */}
+        {sandbox && (
+          <div className="analyzerCard" style={{ border: "1px solid var(--panel-border)", padding: "12px", borderRadius: "12px", background: "rgba(255,255,255,0.02)" }}>
+            <h4 style={{ margin: "0 0 8px 0", color: "var(--accent)" }}>Dynamic Sandbox</h4>
+            <p style={{ margin: 0 }}>
+              Verdict: <strong style={{ color: sandbox.verdict === "malicious" ? "var(--bad)" : sandbox.verdict === "suspicious" ? "var(--warn)" : "inherit" }}>
+                {sandbox.verdict ? sandbox.verdict.toUpperCase() : "NOT RUN"}
+              </strong>
+            </p>
+            {sandbox.reason && <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--muted)", fontStyle: "italic" }}>{sandbox.reason}</p>}
+            {sandbox.details && <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--muted)" }}>{sandbox.details}</p>}
+            {sandbox.behavior_alerts && sandbox.behavior_alerts.length > 0 && (
+              <div style={{ marginTop: "8px" }}>
+                <p style={{ margin: "0 0 4px 0", fontSize: "0.85rem", fontWeight: "bold", color: "var(--bad)" }}>Behavior Alerts:</p>
+                <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "0.85rem" }}>
+                  {sandbox.behavior_alerts.map((alert, idx) => (
+                    <li key={idx} style={{ color: "var(--bad)" }}>
+                      {alert}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {sandbox.logs && (
+              <div style={{ marginTop: "12px" }}>
+                <p style={{ margin: "0 0 4px 0", fontSize: "0.85rem", fontWeight: "bold" }}>Sandbox Execution Logs:</p>
+                <pre style={{
+                  margin: 0,
+                  padding: "8px",
+                  background: "rgba(0,0,0,0.3)",
+                  borderRadius: "6px",
+                  fontSize: "0.75rem",
+                  maxHeight: "120px",
+                  overflowY: "auto",
+                  color: "var(--muted)",
+                  whiteSpace: "pre-wrap"
+                }}>{sandbox.logs}</pre>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -188,17 +231,52 @@ export default function HomePage() {
         return;
       }
 
-      setUrlState("done");
-      setUrlResult(data);
-      setAnalysisHistory((previousHistory) => {
-        const nextEntry = {
-          inspected_url: normalizedUrl,
-          analyzed_at: new Date().toISOString(),
-          ...data,
-        };
-        const deduped = previousHistory.filter((entry) => entry.inspected_url !== normalizedUrl);
-        return [nextEntry, ...deduped].slice(0, 8);
-      });
+      if (data.analysis_state === "pending") {
+        setUrlState("scanning");
+        setUrlResult(data);
+        const pollInterval = setInterval(async () => {
+          try {
+            const pollResponse = await fetch(`/api/upload/${data.upload_id}`, { cache: "no-store" });
+            if (!pollResponse.ok) {
+              clearInterval(pollInterval);
+              setUrlState("error");
+              setUrlResult({ error: "Background scanning status check failed." });
+              return;
+            }
+            const pollData = await pollResponse.json();
+            if (pollData.analysis_state !== "pending") {
+              clearInterval(pollInterval);
+              setUrlState("done");
+              setUrlResult(pollData);
+              setAnalysisHistory((previousHistory) => {
+                const nextEntry = {
+                  inspected_url: normalizedUrl,
+                  analyzed_at: new Date().toISOString(),
+                  ...pollData,
+                };
+                const deduped = previousHistory.filter((entry) => entry.inspected_url !== normalizedUrl);
+                return [nextEntry, ...deduped].slice(0, 8);
+              });
+            }
+          } catch (err) {
+            clearInterval(pollInterval);
+            setUrlState("error");
+            setUrlResult({ error: "Background scanning check connection failed." });
+          }
+        }, 2000);
+      } else {
+        setUrlState("done");
+        setUrlResult(data);
+        setAnalysisHistory((previousHistory) => {
+          const nextEntry = {
+            inspected_url: normalizedUrl,
+            analyzed_at: new Date().toISOString(),
+            ...data,
+          };
+          const deduped = previousHistory.filter((entry) => entry.inspected_url !== normalizedUrl);
+          return [nextEntry, ...deduped].slice(0, 8);
+        });
+      }
     } catch (error) {
       setUrlState("error");
       setUrlResult({ error: "URL analysis failed." });
@@ -285,8 +363,34 @@ export default function HomePage() {
         return;
       }
 
-      setUploadState("done");
-      setUploadResult(data);
+      if (data.analysis_state === "pending") {
+        setUploadState("scanning");
+        setUploadResult(data);
+        const pollInterval = setInterval(async () => {
+          try {
+            const pollResponse = await fetch(`/api/upload/${data.upload_id}`, { cache: "no-store" });
+            if (!pollResponse.ok) {
+              clearInterval(pollInterval);
+              setUploadState("error");
+              setUploadResult({ error: "Background scanning status check failed." });
+              return;
+            }
+            const pollData = await pollResponse.json();
+            if (pollData.analysis_state !== "pending") {
+              clearInterval(pollInterval);
+              setUploadState("done");
+              setUploadResult(pollData);
+            }
+          } catch (err) {
+            clearInterval(pollInterval);
+            setUploadState("error");
+            setUploadResult({ error: "Background scanning check connection failed." });
+          }
+        }, 2000);
+      } else {
+        setUploadState("done");
+        setUploadResult(data);
+      }
     } catch (error) {
       setUploadState("error");
       setUploadResult({ error: "Upload failed." });
@@ -557,11 +661,11 @@ export default function HomePage() {
             </div>
           ) : null}
         </form>
-        {urlResult?.upload_id ? (
+        {urlResult ? (
           <GeminiAssistant
             title="Gemini explanation and chat"
             analysis={{ ...urlResult, preview: urlPreviewResult }}
-            analysisKey={urlResult.upload_id}
+            analysisKey={urlResult.upload_id || urlResult.error || urlResult.detail || "url-error"}
           />
         ) : null}
 
@@ -643,11 +747,11 @@ export default function HomePage() {
             </div>
           ) : null}
         </form>
-        {uploadResult?.upload_id ? (
+        {uploadResult ? (
           <GeminiAssistant
             title="Gemini explanation and chat"
             analysis={{ ...uploadResult, preview: uploadPreviewResult }}
-            analysisKey={uploadResult.upload_id}
+            analysisKey={uploadResult.upload_id || uploadResult.error || uploadResult.detail || "upload-error"}
           />
         ) : null}
       </section>
