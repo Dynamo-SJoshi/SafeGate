@@ -16,12 +16,15 @@ I will keep this guide updated as the project workflow changes.
 - SSRF protection for URL fetching
 - landing-page detection and candidate download links
 - file fingerprinting
+- Asynchronous background worker queue for scans
+- YARA scanning with rules for PDFs, macros, webshells, and PowerShell
+- Dynamic sandboxing inside isolated read-only Python containers
 
 ---
 
 ## 2. Quick Start with Docker (Recommended)
 
-Now that SafeGate has been dockerized, you can start both the backend and frontend services with a single command:
+Now that SafeGate has been dockerized, you can start both the backend and frontend services with a single command. **Running under Docker is highly recommended** since the dynamic sandbox requires mounting the host's `/var/run/docker.sock` to execute isolated script containers.
 
 ### Steps
 1. Make sure **Docker Desktop** is open and running on your machine.
@@ -355,5 +358,11 @@ Gemini is integrated on the backend as a private helper:
 - Gemini responses are formatted as two clear lines using `Summary:` and `Advice:`
 - the chat box is for related doubts about the current analysis only
 - if Gemini reports high demand or a transient failure, SafeGate retries briefly and then falls back to a local SafeGate summary so the panel still works
+- **Persistent chat on failure**: If a scan or fetching fails, the chatbot stays visible and Gemini parses the error details to explain why it failed.
 
-This makes SafeGate better suited for download sites that do not expose the actual file directly in the first URL.
+Asynchronous scanning and sandboxing details:
+- **Async Queue**: Uploads and link analyses return a `PENDING` state instantly. A resident FastAPI task processes scans (ClamAV, YARA, ExifTool, Sandbox) in the background. The Next.js frontend automatically polls the backend every 2 seconds to refresh details.
+- **Dynamic Sandbox**: Python (`.py`) scripts are copied to a host-shared directory and executed inside a read-only `python:3.10-slim` container with no network access and strict resources limits. It flags file system write attempts or connection attempts and reports them back.
+- **ClamAV Timeout**: If ClamAV times out or is offline, it displays `TIMEOUT` or `UNAVAILABLE` gracefully in the UI.
+
+This makes SafeGate a full-featured asynchronous scan analysis platform.
