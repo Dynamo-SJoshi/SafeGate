@@ -54,7 +54,7 @@ rule powershell_suspicious_script {
         $noprofile = "-NoProfile" ascii nocase
         $hidden = "-WindowStyle Hidden" ascii nocase
         $iex = "Invoke-Expression" ascii nocase
-        $iex_alias = /\biex\b/ ascii nocase
+        $iex_alias = /\biex(\s+|\()/ ascii nocase
         $download_string = ".DownloadString(" ascii nocase
         $download_file = ".DownloadFile(" ascii nocase
     condition:

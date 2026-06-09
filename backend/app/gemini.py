@@ -249,6 +249,7 @@ def _compact_analysis(analysis: dict[str, Any]) -> str:
         "preview",
         "error",
         "detail",
+        "static_analysis",
     }
     compact = {key: analysis.get(key) for key in relevant_keys if key in analysis}
     text = json.dumps(compact, ensure_ascii=False, indent=2)
