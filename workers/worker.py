@@ -32,6 +32,107 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
         logger.error(f"Upload record not found: {upload_id}")
         return None
 
+    if record.get("source_kind") == "url" and record.get("source_state") == "pending_fetch":
+        logger.info(f"Worker downloading remote file for URL: {record.get('source_url')}")
+        from app.url_fetching import fetch_remote_source
+        from app.progress import progress_store
+        from urllib.parse import urlparse
+        import hashlib
+        from app.fingerprinting import fingerprint_file
+
+        def on_progress(bytes_written: int, total_bytes: int):
+            if total_bytes > 0:
+                percent = int((bytes_written / total_bytes) * 100)
+                percent = max(0, min(100, percent))
+                progress_store[upload_id] = percent
+            else:
+                progress_store[upload_id] = -1
+
+        try:
+            remote_fetch = fetch_remote_source(
+                source_url=str(record["source_url"]),
+                upload_id=upload_id,
+                on_progress=on_progress,
+            )
+            
+            parsed_final_url = urlparse(remote_fetch.final_url)
+            original_filename = Path(parsed_final_url.path).name or "downloaded-file"
+            stored_path = remote_fetch.stored_path
+            content_type = remote_fetch.content_type or "application/octet-stream"
+            size_bytes = stored_path.stat().st_size
+            
+            sha256_hash = hashlib.sha256()
+            with stored_path.open("rb") as f:
+                for chunk in iter(lambda: f.read(65536), b""):
+                    sha256_hash.update(chunk)
+            sha256 = sha256_hash.hexdigest()
+
+            fingerprint = fingerprint_file(
+                file_path=stored_path,
+                claimed_filename=original_filename,
+                claimed_content_type=content_type,
+            )
+
+            # Update the database record with metadata
+            save_upload_record(
+                upload_id=upload_id,
+                original_filename=original_filename,
+                stored_filename=stored_path.name,
+                content_type=content_type,
+                size_bytes=size_bytes,
+                sha256=sha256,
+                fingerprint=fingerprint.to_dict(),
+                analysis_state="pending",
+                source_url=remote_fetch.final_url,
+                source_kind="url",
+                source_state=remote_fetch.fetch_kind,
+                selected_candidate_url=remote_fetch.selected_candidate_url,
+                candidate_urls=remote_fetch.candidate_urls,
+                client_ip=record.get("client_ip"),
+                static_analysis=record.get("static_analysis") or {},
+                candidate_details=[
+                    {"url": candidate.url, "score": candidate.score, "reasons": candidate.reasons}
+                    for candidate in remote_fetch.candidate_details
+                ],
+            )
+            
+            # Reload record and stored_path for analysis
+            record = get_upload_record(upload_id)
+            
+            # Clean up progress store
+            if upload_id in progress_store:
+                del progress_store[upload_id]
+
+        except Exception as exc:
+            logger.error(f"Failed to fetch remote source for {upload_id}: {exc}")
+            if upload_id in progress_store:
+                del progress_store[upload_id]
+            
+            placeholder_fingerprint = {
+                "claimed_content_type": "unknown",
+                "detected_content_type": "unknown",
+                "claimed_extension": "",
+                "detected_type": "unknown",
+                "match_status": "unknown",
+                "confidence": "unknown"
+            }
+            save_upload_record(
+                upload_id=upload_id,
+                original_filename="download-failed",
+                stored_filename="none",
+                content_type="application/octet-stream",
+                size_bytes=0,
+                sha256="none",
+                fingerprint=record.get("fingerprint") or placeholder_fingerprint,
+                analysis_state="error",
+                source_url=record.get("source_url"),
+                source_kind="url",
+                source_state="error",
+                client_ip=record.get("client_ip"),
+                static_analysis={"error": f"Failed to download remote file: {exc}"},
+            )
+            return get_upload_record(upload_id)
+
     stored_path = resolve_stored_path(record)
     if not stored_path.exists():
         logger.error(f"Stored file not found for scanning: {stored_path}")

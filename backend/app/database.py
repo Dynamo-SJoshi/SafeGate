@@ -74,6 +74,7 @@ def initialize_database() -> None:
         with connection.cursor() as cursor:
             cursor.execute(UPLOADS_TABLE_SQL)
             cursor.execute(UPLOADS_EXTRA_COLUMNS_SQL)
+            cursor.execute("ALTER TABLE uploads ENABLE ROW LEVEL SECURITY;")
 
 
 def save_upload_record(
@@ -101,8 +102,6 @@ def save_upload_record(
     detected_type = str(fingerprint["detected_type"])
     match_status = str(fingerprint["match_status"])
     confidence = str(fingerprint["confidence"])
-
-    initialize_database()
 
     with db_connection() as connection:
         with connection.cursor() as cursor:
@@ -208,8 +207,6 @@ def save_upload_record(
 
 
 def get_upload_record(upload_id: str) -> dict[str, object] | None:
-    initialize_database()
-
     with db_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(

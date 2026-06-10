@@ -8,13 +8,14 @@ from pathlib import Path
 from uuid import uuid4
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from .environment import load_local_env_files
 from .database import get_upload_record, save_upload_record, db_connection
 from .fingerprinting import fingerprint_file
+from .report_generator import generate_pdf_report, get_report_data
 from .gemini import (
     ask_gemini_about_analysis,
     build_fallback_chat_answer,
@@ -28,6 +29,7 @@ from .cleanup import cleanup_loop
 from .clamav_scanner import scan_file_with_clamav
 from .yara_scanner import scan_file_with_yara
 from .exif_scanner import extract_metadata_with_exiftool
+from .security import validate_and_normalize_url
 
 load_local_env_files()
 
@@ -67,6 +69,14 @@ async def resident_worker_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize database tables on startup
+    from .database import initialize_database
+    try:
+        initialize_database()
+        print("Database schema checked/initialized successfully.")
+    except Exception as exc:
+        print(f"Error initializing database on startup: {exc}")
+
     # Start the background cleanup task on startup (runs every 5 minutes by default)
     cleanup_task = asyncio.create_task(cleanup_loop())
     # Start resident scan worker task
@@ -207,29 +217,58 @@ def analyze_url(payload: UrlAnalyzeRequest, request: Request):
     client_ip = get_client_ip(request)
 
     try:
-        remote_fetch = fetch_remote_source(
-            source_url=payload.url,
-            upload_id=upload_id,
-        )
-        parsed_final_url = urlparse(remote_fetch.final_url)
-        return _analyze_and_store_file(
-            upload_id=upload_id,
-            stored_path=remote_fetch.stored_path,
-            original_filename=Path(parsed_final_url.path).name or "downloaded-file",
-            content_type=remote_fetch.content_type or "application/octet-stream",
-            source_kind="url",
-            source_url=remote_fetch.final_url,
-            source_state=remote_fetch.fetch_kind,
-            selected_candidate_url=remote_fetch.selected_candidate_url,
-            candidate_urls=remote_fetch.candidate_urls,
-            candidate_details=[
-                {"url": candidate.url, "score": candidate.score, "reasons": candidate.reasons}
-                for candidate in remote_fetch.candidate_details
-            ],
-            notes=remote_fetch.notes,
-        )
+        normalized_url = validate_and_normalize_url(payload.url)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    placeholder_fingerprint = {
+        "claimed_content_type": "unknown",
+        "detected_content_type": "unknown",
+        "claimed_extension": "",
+        "detected_type": "unknown",
+        "match_status": "unknown",
+        "confidence": "unknown"
+    }
+
+    try:
+        save_upload_record(
+            upload_id=upload_id,
+            original_filename="pending-download",
+            stored_filename="pending-download",
+            content_type="application/octet-stream",
+            size_bytes=0,
+            sha256="pending",
+            fingerprint=placeholder_fingerprint,
+            analysis_state="pending",
+            source_url=normalized_url,
+            source_kind="url",
+            source_state="pending_fetch",
+            client_ip=client_ip,
+        )
+        scan_queue.put_nowait(upload_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to initialize upload record in database: {exc}",
+        ) from exc
+
+    return {
+        "status": "received",
+        "upload_id": upload_id,
+        "filename": "pending-download",
+        "content_type": "application/octet-stream",
+        "size_bytes": 0,
+        "sha256": "pending",
+        "fingerprint": placeholder_fingerprint,
+        "analysis_state": "pending",
+        "database_state": "saved",
+        "source_kind": "url",
+        "source_state": "pending_fetch",
+        "source_url": normalized_url,
+        "candidate_urls": [],
+        "candidate_details": [],
+        "notes": [],
+    }
 
 
 @app.post("/preview")
@@ -296,6 +335,9 @@ def get_upload_status(upload_id: str):
     record = get_upload_record(upload_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Upload record not found.")
+
+    from .progress import progress_store
+    record["download_progress"] = progress_store.get(upload_id, None)
     return record
 
 
@@ -422,3 +464,44 @@ def _analyze_and_store_file(
         "candidate_details": candidate_details or [],
         "notes": notes or [],
     }
+
+
+@app.get("/report/{upload_id}")
+def get_report_json(upload_id: str):
+    record = get_upload_record(upload_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Upload record not found.")
+    
+    if record.get("analysis_state") == "pending":
+        raise HTTPException(status_code=400, detail="Scan analysis is still pending.")
+        
+    try:
+        data = get_report_data(record)
+        return data
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to generate report JSON: {str(exc)}")
+
+
+@app.get("/report/{upload_id}/pdf")
+def get_report_pdf(upload_id: str):
+    record = get_upload_record(upload_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Upload record not found.")
+    
+    if record.get("analysis_state") == "pending":
+        raise HTTPException(status_code=400, detail="Scan analysis is still pending.")
+        
+    try:
+        pdf_bytes = generate_pdf_report(record)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"inline; filename=SafeGate_Report_{upload_id}.pdf"
+            }
+        )
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to compile PDF report: {str(exc)}")
+

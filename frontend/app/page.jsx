@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import GeminiAssistant from "./GeminiAssistant";
+import SecurityReport from "./SecurityReport";
 
 function renderStaticAnalysis(result) {
   if (!result || result.error || result.detail) return null;
@@ -54,7 +55,15 @@ function renderStaticAnalysis(result) {
       <div className="staticAnalyzersGrid" style={{ display: "grid", gap: "16px", marginTop: "12px" }}>
         {/* ClamAV */}
         <div className="analyzerCard" style={{ border: "1px solid var(--panel-border)", padding: "12px", borderRadius: "12px", background: "rgba(255,255,255,0.02)" }}>
-          <h4 style={{ margin: "0 0 8px 0", color: "var(--accent)" }}>ClamAV Antivirus</h4>
+          <h4 style={{ margin: "0 0 8px 0", color: "var(--accent)", display: "flex", alignItems: "center" }}>
+            ClamAV Antivirus
+            <span className="info-trigger" tabIndex={0}>
+              <span className="info-icon-badge">i</span>
+              <span className="tooltip-popup">
+                Antivirus scanner matching the file against signatures of millions of known malware.
+              </span>
+            </span>
+          </h4>
           <p style={{ margin: 0 }}>
             Verdict: <strong style={{ color: clamav.verdict === "infected" ? "var(--bad)" : "inherit" }}>
               {clamav.verdict ? clamav.verdict.toUpperCase() : "NOT RUN"}
@@ -65,7 +74,15 @@ function renderStaticAnalysis(result) {
 
         {/* YARA */}
         <div className="analyzerCard" style={{ border: "1px solid var(--panel-border)", padding: "12px", borderRadius: "12px", background: "rgba(255,255,255,0.02)" }}>
-          <h4 style={{ margin: "0 0 8px 0", color: "var(--accent)" }}>YARA Signatures</h4>
+          <h4 style={{ margin: "0 0 8px 0", color: "var(--accent)", display: "flex", alignItems: "center" }}>
+            YARA Signatures
+            <span className="info-trigger" tabIndex={0}>
+              <span className="info-icon-badge">i</span>
+              <span className="tooltip-popup">
+                Pattern-matching tool that checks for specific exploit scripts, webshells, or suspicious code patterns.
+              </span>
+            </span>
+          </h4>
           <p style={{ margin: 0 }}>
             Verdict: <strong>{yara.verdict ? yara.verdict.toUpperCase() : "NOT RUN"}</strong>
           </p>
@@ -87,7 +104,15 @@ function renderStaticAnalysis(result) {
         {/* ExifTool Metadata */}
         {exifMetadata && (
           <div className="analyzerCard" style={{ border: "1px solid var(--panel-border)", padding: "12px", borderRadius: "12px", background: "rgba(255,255,255,0.02)" }}>
-            <h4 style={{ margin: "0 0 8px 0", color: "var(--accent)" }}>ExifTool Metadata</h4>
+            <h4 style={{ margin: "0 0 8px 0", color: "var(--accent)", display: "flex", alignItems: "center" }}>
+              ExifTool Metadata
+              <span className="info-trigger" tabIndex={0}>
+                <span className="info-icon-badge">i</span>
+                <span className="tooltip-popup">
+                  Parser checking file header tags and metadata for hidden script payloads or extension mismatches.
+                </span>
+              </span>
+            </h4>
             <div style={{ maxHeight: "200px", overflowY: "auto", fontSize: "0.85rem" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
@@ -111,7 +136,15 @@ function renderStaticAnalysis(result) {
         {/* Dynamic Sandbox */}
         {sandbox && (
           <div className="analyzerCard" style={{ border: "1px solid var(--panel-border)", padding: "12px", borderRadius: "12px", background: "rgba(255,255,255,0.02)" }}>
-            <h4 style={{ margin: "0 0 8px 0", color: "var(--accent)" }}>Dynamic Sandbox</h4>
+            <h4 style={{ margin: "0 0 8px 0", color: "var(--accent)", display: "flex", alignItems: "center" }}>
+              Dynamic Sandbox
+              <span className="info-trigger" tabIndex={0}>
+                <span className="info-icon-badge">i</span>
+                <span className="tooltip-popup">
+                  Isolated runtime container that executes the file, recording outbound network queries, file operations, and spawned processes.
+                </span>
+              </span>
+            </h4>
             <p style={{ margin: 0 }}>
               Verdict: <strong style={{ color: sandbox.verdict === "malicious" ? "var(--bad)" : sandbox.verdict === "suspicious" ? "var(--warn)" : "inherit" }}>
                 {sandbox.verdict ? sandbox.verdict.toUpperCase() : "NOT RUN"}
@@ -170,6 +203,8 @@ export default function HomePage() {
   const [uploadPreviewState, setUploadPreviewState] = useState("idle");
   const [uploadPreviewResult, setUploadPreviewResult] = useState(null);
   const [uploadDetailsOpen, setUploadDetailsOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [selectedReportId, setSelectedReportId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -493,6 +528,52 @@ export default function HomePage() {
               <span className="uiverseButtonText">Analyze Link</span>
             </span>
           </button>
+          {(urlState === "analyzing" || urlState === "scanning") && (
+            <div className="downloadProgressBarContainer" style={{
+              marginTop: "20px",
+              marginBottom: "20px",
+              padding: "16px",
+              background: "rgba(140, 170, 255, 0.04)",
+              border: "1px solid rgba(140, 170, 255, 0.1)",
+              borderRadius: "14px",
+              display: "flex",
+              alignItems: "center",
+              gap: "24px",
+              boxShadow: "inset 0 1px 1px rgba(255, 255, 255, 0.05)"
+            }}>
+              <div style={{ width: "120px", display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
+                <div className="spinner">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+              <div style={{ flexGrow: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "0.9rem", fontWeight: "600", color: "var(--accent)" }}>
+                    {urlState === "analyzing"
+                      ? "Initiating connection..."
+                      : (urlResult?.source_state === "pending_fetch"
+                        ? (urlResult?.download_progress !== undefined && urlResult?.download_progress !== null && urlResult.download_progress >= 0
+                          ? "Downloading file to container..."
+                          : "Connecting & downloading remote file...")
+                        : "Running security checks (ClamAV, YARA, ExifTool, Sandbox)...")}
+                  </span>
+                  <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "var(--muted)", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "8px" }}>
+                    {urlState === "scanning" && urlResult?.source_state === "pending_fetch" && urlResult?.download_progress !== undefined && urlResult?.download_progress !== null && urlResult.download_progress >= 0
+                      ? `${urlResult.download_progress}%`
+                      : "Scanning..."}
+                  </span>
+                </div>
+                <div className="loader" style={{ width: "100%" }}></div>
+              </div>
+            </div>
+          )}
           {urlResult?.upload_id ? (
             <button
               type="button"
@@ -503,7 +584,7 @@ export default function HomePage() {
             </button>
           ) : null}
           {urlResult ? (
-            <div className="detailsToggle">
+            <div className="detailsToggle" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "16px" }}>
               <button
                 type="button"
                 className="ui-btn detailButton detailsToggleButton"
@@ -511,7 +592,19 @@ export default function HomePage() {
               >
                 <span>{urlDetailsOpen ? "Hide details" : "View more details"}</span>
               </button>
-              {urlDetailsOpen ? <pre>{JSON.stringify(urlResult, null, 2)}</pre> : null}
+              {urlResult?.upload_id && (
+                <button
+                  type="button"
+                  className="ui-btn previewButton"
+                  onClick={() => {
+                    setSelectedReportId(urlResult.upload_id);
+                    setReportOpen(true);
+                  }}
+                >
+                  <span>View Security Report</span>
+                </button>
+              )}
+              {urlDetailsOpen ? <pre style={{ width: "100%" }}>{JSON.stringify(urlResult, null, 2)}</pre> : null}
             </div>
           ) : null}
           {urlResult?.source_state ? (
@@ -687,6 +780,46 @@ export default function HomePage() {
               <span className="uiverseButtonText">Upload File</span>
             </span>
           </button>
+          {(uploadState === "uploading" || uploadState === "scanning") && (
+            <div className="downloadProgressBarContainer" style={{
+              marginTop: "20px",
+              marginBottom: "20px",
+              padding: "16px",
+              background: "rgba(140, 170, 255, 0.04)",
+              border: "1px solid rgba(140, 170, 255, 0.1)",
+              borderRadius: "14px",
+              display: "flex",
+              alignItems: "center",
+              gap: "24px",
+              boxShadow: "inset 0 1px 1px rgba(255, 255, 255, 0.05)"
+            }}>
+              <div style={{ width: "120px", display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
+                <div className="spinner">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+              <div style={{ flexGrow: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "0.9rem", fontWeight: "600", color: "var(--accent)" }}>
+                    {uploadState === "uploading"
+                      ? "Uploading file to server..."
+                      : "Running security checks (ClamAV, YARA, ExifTool, Sandbox)..."}
+                  </span>
+                  <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "var(--muted)", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "8px" }}>
+                    {uploadState === "uploading" ? "Uploading..." : "Scanning..."}
+                  </span>
+                </div>
+                <div className="loader" style={{ width: "100%" }}></div>
+              </div>
+            </div>
+          )}
           {uploadResult?.upload_id ? (
             <button
               type="button"
@@ -697,7 +830,7 @@ export default function HomePage() {
             </button>
           ) : null}
           {uploadResult ? (
-            <div className="detailsToggle">
+            <div className="detailsToggle" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "16px" }}>
               <button
                 type="button"
                 className="ui-btn detailButton detailsToggleButton"
@@ -705,7 +838,19 @@ export default function HomePage() {
               >
                 <span>{uploadDetailsOpen ? "Hide details" : "View more details"}</span>
               </button>
-              {uploadDetailsOpen ? <pre>{JSON.stringify(uploadResult, null, 2)}</pre> : null}
+              {uploadResult?.upload_id && (
+                <button
+                  type="button"
+                  className="ui-btn previewButton"
+                  onClick={() => {
+                    setSelectedReportId(uploadResult.upload_id);
+                    setReportOpen(true);
+                  }}
+                >
+                  <span>View Security Report</span>
+                </button>
+              )}
+              {uploadDetailsOpen ? <pre style={{ width: "100%" }}>{JSON.stringify(uploadResult, null, 2)}</pre> : null}
             </div>
           ) : null}
           {renderStaticAnalysis(uploadResult)}
@@ -801,6 +946,15 @@ export default function HomePage() {
           </Link>
         </div>
       </footer>
+      {reportOpen && (
+        <SecurityReport 
+          uploadId={selectedReportId} 
+          onClose={() => {
+            setReportOpen(false);
+            setSelectedReportId(null);
+          }} 
+        />
+      )}
     </main>
   );
 }

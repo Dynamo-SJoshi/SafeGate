@@ -6,6 +6,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
+from typing import Callable
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -107,7 +108,11 @@ class DownloadLinkExtractor(HTMLParser):
             self._add_candidate(match.group(0))
 
 
-def fetch_remote_source(source_url: str, upload_id: str) -> RemoteFetchResult:
+def fetch_remote_source(
+    source_url: str,
+    upload_id: str,
+    on_progress: Callable[[int, int], None] | None = None,
+) -> RemoteFetchResult:
     normalized_url = validate_and_normalize_url(source_url)
     destination_root = Path(tempfile.gettempdir()) / "safegate" / "remote"
     destination_root.mkdir(parents=True, exist_ok=True)
@@ -121,6 +126,7 @@ def fetch_remote_source(source_url: str, upload_id: str) -> RemoteFetchResult:
             destination_root=destination_root,
             upload_id=upload_id,
             allow_candidate_follow=True,
+            on_progress=on_progress,
         )
         return result
     except Exception:
@@ -137,6 +143,7 @@ def _download_with_redirects(
     destination_root: Path,
     upload_id: str,
     allow_candidate_follow: bool,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> RemoteFetchResult:
     opener = urllib.request.build_opener(NoRedirectHandler())
     request = urllib.request.Request(
@@ -167,6 +174,7 @@ def _download_with_redirects(
                 destination_root=destination_root,
                 upload_id=upload_id,
                 allow_candidate_follow=allow_candidate_follow,
+                on_progress=on_progress,
             )
 
         raise ValueError(f"Remote fetch failed with HTTP {exc.code}.") from exc
@@ -192,6 +200,7 @@ def _download_with_redirects(
                 destination_root=destination_root,
                 upload_id=upload_id,
                 allow_candidate_follow=allow_candidate_follow,
+                on_progress=on_progress,
             )
 
         return _download_file(
@@ -199,6 +208,7 @@ def _download_with_redirects(
             normalized_url=normalized_url,
             destination_path=destination_path,
             content_type=content_type,
+            on_progress=on_progress,
         )
 
 
@@ -211,9 +221,17 @@ def _download_landing_page(
     destination_root: Path,
     upload_id: str,
     allow_candidate_follow: bool,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> RemoteFetchResult:
     size_bytes = 0
     page_bytes = bytearray()
+    content_length = response.headers.get("Content-Length")
+    total_bytes = 0
+    if content_length:
+        try:
+            total_bytes = int(content_length)
+        except ValueError:
+            pass
 
     with destination_path.open("wb") as buffer:
         while True:
@@ -227,6 +245,8 @@ def _download_landing_page(
 
             buffer.write(chunk)
             page_bytes.extend(chunk)
+            if on_progress:
+                on_progress(size_bytes, total_bytes)
 
     if size_bytes == 0:
         raise ValueError("Remote landing page was empty.")
@@ -249,6 +269,7 @@ def _download_landing_page(
             destination_root=destination_root,
             upload_id=upload_id,
             redirects_remaining=MAX_REDIRECTS,
+            on_progress=on_progress,
         )
         if followed_candidate is not None:
             candidate_result, selected_candidate_url = followed_candidate
@@ -287,6 +308,7 @@ def _attempt_best_candidate_download(
     destination_root: Path,
     upload_id: str,
     redirects_remaining: int,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> tuple[RemoteFetchResult, str] | None:
     for index, candidate in enumerate(candidate_details):
         candidate_url = candidate.url
@@ -299,6 +321,7 @@ def _attempt_best_candidate_download(
                 destination_root=destination_root,
                 upload_id=upload_id,
                 allow_candidate_follow=False,
+                on_progress=on_progress,
             )
         except Exception:
             if candidate_destination.exists():
@@ -320,11 +343,20 @@ def _download_file(
     normalized_url: str,
     destination_path: Path,
     content_type: str,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> RemoteFetchResult:
     size_bytes = 0
+    content_length = response.headers.get("Content-Length")
+    total_bytes = 0
+    if content_length:
+        try:
+            total_bytes = int(content_length)
+        except ValueError:
+            pass
+
     with destination_path.open("wb") as buffer:
         while True:
-            chunk = response.read(1024 * 1024)
+            chunk = response.read(64 * 1024)
             if not chunk:
                 break
 
@@ -333,6 +365,8 @@ def _download_file(
                 raise ValueError("Remote file exceeds the SafeGate fetch limit.")
 
             buffer.write(chunk)
+            if on_progress:
+                on_progress(size_bytes, total_bytes)
 
     if size_bytes == 0:
         raise ValueError("Remote file was empty.")

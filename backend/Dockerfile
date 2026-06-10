@@ -8,6 +8,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libimage-exiftool-perl \
     yara \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf-2.0-0 \
+    shared-mime-info \
+    libcairo2 \
+    libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python packages
