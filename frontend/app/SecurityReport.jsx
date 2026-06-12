@@ -250,98 +250,174 @@ export default function SecurityReport({ uploadId, onClose }) {
                   <div className="scannersChecklist">
                     
                     {/* ClamAV */}
-                    <div className="scannerRow">
-                      <div className="scannerMeta">
-                        <span className="scannerTitle">
-                          ClamAV Antivirus
-                          <span className="info-trigger" tabIndex={0}>
-                            <span className="info-icon-badge">i</span>
-                            <span className="tooltip-popup">
-                              Antivirus scanner matching the file against signatures of millions of known malware.
+                    {(() => {
+                      let clamavDetail = "No malicious signatures matched";
+                      let clamavStatus = "Passed";
+                      let clamavClass = "pass";
+
+                      if (scanners.clamav?.verdict === "skipped") {
+                        clamavDetail = "Scan skipped for safety: ZIP bomb detected.";
+                        clamavStatus = "Skipped";
+                        clamavClass = "skip";
+                      } else if (scanners.clamav?.verdict === "infected") {
+                        clamavDetail = `Infected: ${scanners.clamav.details?.replace("Infected with: ", "") || ""}`;
+                        clamavStatus = "Threat Detected";
+                        clamavClass = "fail";
+                      } else if (scanners.clamav?.verdict === "unavailable") {
+                        clamavDetail = "ClamAV service is temporarily unavailable";
+                        clamavStatus = "Unavailable";
+                        clamavClass = "warn";
+                      }
+
+                      return (
+                        <div className="scannerRow">
+                          <div className="scannerMeta">
+                            <span className="scannerTitle">
+                              ClamAV Antivirus
+                              <span className="info-trigger" tabIndex={0}>
+                                <span className="info-icon-badge">i</span>
+                                <span className="tooltip-popup">
+                                  Antivirus scanner matching the file against signatures of millions of known malware.
+                                </span>
+                              </span>
                             </span>
+                            <span className="scannerDetail">{clamavDetail}</span>
+                          </div>
+                          <span className={`scannerStatusBadge status-${clamavClass}`}>
+                            {clamavStatus}
                           </span>
-                        </span>
-                        <span className="scannerDetail">
-                          {scanners.clamav?.verdict === "infected" 
-                            ? `Infected: ${scanners.clamav.details.replace("Infected with: ", "")}`
-                            : "No malicious signatures matched"}
-                        </span>
-                      </div>
-                      <span className={`scannerStatusBadge status-${scanners.clamav?.verdict === "infected" ? "fail" : "pass"}`}>
-                        {scanners.clamav?.verdict === "infected" ? "Threat Detected" : "Passed"}
-                      </span>
-                    </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* YARA */}
-                    <div className="scannerRow">
-                      <div className="scannerMeta">
-                        <span className="scannerTitle">
-                          YARA Rules Analyzer
-                          <span className="info-trigger" tabIndex={0}>
-                            <span className="info-icon-badge">i</span>
-                            <span className="tooltip-popup">
-                              Pattern-matching tool that checks for specific exploit scripts, webshells, or suspicious code patterns.
+                    {(() => {
+                      let yaraDetail = "No security rules triggered";
+                      let yaraStatus = "Passed";
+                      let yaraClass = "pass";
+
+                      if (scanners.yara?.verdict === "skipped") {
+                        yaraDetail = "Scan skipped for safety: ZIP bomb detected.";
+                        yaraStatus = "Skipped";
+                        yaraClass = "skip";
+                      } else if (scanners.yara?.verdict === "suspicious") {
+                        yaraDetail = scanners.yara?.matches?.length 
+                          ? `Matched rules: ${scanners.yara.matches.join(", ")}`
+                          : "Security rules triggered";
+                        yaraStatus = "Warning";
+                        yaraClass = "fail";
+                      } else if (scanners.yara?.verdict === "error") {
+                        yaraDetail = `Scan failed: ${scanners.yara.details || "Unknown error"}`;
+                        yaraStatus = "Error";
+                        yaraClass = "warn";
+                      }
+
+                      return (
+                        <div className="scannerRow">
+                          <div className="scannerMeta">
+                            <span className="scannerTitle">
+                              YARA Rules Analyzer
+                              <span className="info-trigger" tabIndex={0}>
+                                <span className="info-icon-badge">i</span>
+                                <span className="tooltip-popup">
+                                  Pattern-matching tool that checks for specific exploit scripts, webshells, or suspicious code patterns.
+                                </span>
+                              </span>
                             </span>
+                            <span className="scannerDetail">{yaraDetail}</span>
+                          </div>
+                          <span className={`scannerStatusBadge status-${yaraClass}`}>
+                            {yaraStatus}
                           </span>
-                        </span>
-                        <span className="scannerDetail">
-                          {scanners.yara?.matches?.length 
-                            ? `Matched rules: ${scanners.yara.matches.join(", ")}`
-                            : "No security rules triggered"}
-                        </span>
-                      </div>
-                      <span className={`scannerStatusBadge status-${scanners.yara?.verdict === "suspicious" ? "fail" : "pass"}`}>
-                        {scanners.yara?.verdict === "suspicious" ? "Warning" : "Passed"}
-                      </span>
-                    </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* ExifTool */}
-                    <div className="scannerRow">
-                      <div className="scannerMeta">
-                        <span className="scannerTitle">
-                          ExifTool Metadata Integrity
-                          <span className="info-trigger" tabIndex={0}>
-                            <span className="info-icon-badge">i</span>
-                            <span className="tooltip-popup">
-                              Parser checking file header tags and metadata for hidden script payloads or extension mismatches.
+                    {(() => {
+                      let exifDetail = "Metadata tags validated";
+                      let exifStatus = "Passed";
+                      let exifClass = "pass";
+
+                      if (scanners.exiftool?.status === "skipped") {
+                        exifDetail = "Scan skipped for safety: ZIP bomb detected.";
+                        exifStatus = "Skipped";
+                        exifClass = "skip";
+                      } else if (scanners.exif_warnings_count > 0) {
+                        exifDetail = `${scanners.exif_warnings_count} warning anomalies flagged`;
+                        exifStatus = "Anomalies";
+                        exifClass = "warn";
+                      } else if (scanners.exiftool?.status === "error") {
+                        exifDetail = `Scan failed: ${scanners.exiftool.details || "Unknown error"}`;
+                        exifStatus = "Error";
+                        exifClass = "warn";
+                      }
+
+                      return (
+                        <div className="scannerRow">
+                          <div className="scannerMeta">
+                            <span className="scannerTitle">
+                              ExifTool Metadata Integrity
+                              <span className="info-trigger" tabIndex={0}>
+                                <span className="info-icon-badge">i</span>
+                                <span className="tooltip-popup">
+                                  Parser checking file header tags and metadata for hidden script payloads or extension mismatches.
+                                </span>
+                              </span>
                             </span>
+                            <span className="scannerDetail">{exifDetail}</span>
+                          </div>
+                          <span className={`scannerStatusBadge status-${exifClass}`}>
+                            {exifStatus}
                           </span>
-                        </span>
-                        <span className="scannerDetail">
-                          {scanners.exif_warnings_count > 0 
-                            ? `${scanners.exif_warnings_count} warning anomalies flagged`
-                            : "Metadata tags validated"}
-                        </span>
-                      </div>
-                      <span className={`scannerStatusBadge status-${scanners.exif_warnings_count > 0 ? "warn" : "pass"}`}>
-                        {scanners.exif_warnings_count > 0 ? "Anomalies" : "Passed"}
-                      </span>
-                    </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Sandbox */}
-                    <div className="scannerRow">
-                      <div className="scannerMeta">
-                        <span className="scannerTitle">
-                          Dynamic Container Sandbox
-                          <span className="info-trigger" tabIndex={0}>
-                            <span className="info-icon-badge">i</span>
-                            <span className="tooltip-popup">
-                              Isolated runtime container that executes the file, recording outbound network queries, file operations, and spawned processes.
+                    {(() => {
+                      let sandboxDetail = "Clean behavior profile";
+                      let sandboxStatus = "Passed";
+                      let sandboxClass = "pass";
+
+                      if (scanners.sandbox?.verdict === "skipped") {
+                        sandboxDetail = scanners.sandbox?.reason || "Scan skipped or not applicable";
+                        sandboxStatus = "Skipped";
+                        sandboxClass = "skip";
+                      } else if (scanners.sandbox?.verdict === "malicious") {
+                        sandboxDetail = "Hostile actions detected during runtime";
+                        sandboxStatus = "Threat";
+                        sandboxClass = "fail";
+                      } else if (scanners.sandbox?.verdict === "suspicious") {
+                        sandboxDetail = "Suspicious behavior observed in memory";
+                        sandboxStatus = "Warning";
+                        sandboxClass = "warn";
+                      } else if (scanners.sandbox?.verdict === "error") {
+                        sandboxDetail = `Scan failed: ${scanners.sandbox.error || "Unknown error"}`;
+                        sandboxStatus = "Error";
+                        sandboxClass = "warn";
+                      }
+
+                      return (
+                        <div className="scannerRow">
+                          <div className="scannerMeta">
+                            <span className="scannerTitle">
+                              Dynamic Container Sandbox
+                              <span className="info-trigger" tabIndex={0}>
+                                <span className="info-icon-badge">i</span>
+                                <span className="tooltip-popup">
+                                  Isolated runtime container that executes the file, recording outbound network queries, file operations, and spawned processes.
+                                </span>
+                              </span>
                             </span>
+                            <span className="scannerDetail">{sandboxDetail}</span>
+                          </div>
+                          <span className={`scannerStatusBadge status-${sandboxClass}`}>
+                            {sandboxStatus}
                           </span>
-                        </span>
-                        <span className="scannerDetail">
-                          {scanners.sandbox?.verdict === "malicious" 
-                            ? "Hostile actions detected during runtime"
-                            : scanners.sandbox?.verdict === "suspicious"
-                              ? "Suspicious behavior observed in memory"
-                              : "Clean behavior profile"}
-                        </span>
-                      </div>
-                      <span className={`scannerStatusBadge status-${scanners.sandbox?.verdict === "malicious" ? "fail" : (scanners.sandbox?.verdict === "suspicious" ? "warn" : "pass")}`}>
-                        {scanners.sandbox?.verdict === "malicious" ? "Threat" : (scanners.sandbox?.verdict === "suspicious" ? "Warning" : "Passed")}
-                      </span>
-                    </div>
+                        </div>
+                      );
+                    })()}
 
                   </div>
                 </div>

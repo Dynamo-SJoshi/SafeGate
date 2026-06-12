@@ -1368,6 +1368,13 @@ pre {
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
+.scannerStatusBadge.status-skip {
+  color: #94a3b8;
+  background-color: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+
 /* Threat Index Gauge */
 .threatGaugeCircle {
   width: 100px;
