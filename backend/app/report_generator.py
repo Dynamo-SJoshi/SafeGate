@@ -132,17 +132,27 @@ def generate_pdf_report(record: dict[str, Any]) -> bytes:
     if sandbox_verdict == "malicious" and beh_score == 0:
         beh_score = 60
 
-    # Overall Score (0-100)
-    overall_score = 0
-    if verdict == "malicious":
-        overall_score = max(75, int((sig_score + evas_score + net_score + beh_score) / 4))
-        overall_score = min(100, overall_score)
-    elif verdict == "suspicious":
-        overall_score = max(35, int((sig_score + meta_score + evas_score + net_score + beh_score) / 5))
-        overall_score = min(74, overall_score)
+    is_zip_bomb = detected_type == "application/zip-bomb" or "zip-bomb-detected" in fingerprint.get("indicators", [])
+
+    if is_zip_bomb:
+        sig_score = 100
+        meta_score = 100
+        evas_score = 100
+        net_score = 0
+        beh_score = 0
+        overall_score = 100
     else:
-        overall_score = max(0, int((meta_score + net_score) / 5))
-        overall_score = min(34, overall_score)
+        # Overall Score (0-100)
+        overall_score = 0
+        if verdict == "malicious":
+            overall_score = max(75, int((sig_score + evas_score + net_score + beh_score) / 4))
+            overall_score = min(100, overall_score)
+        elif verdict == "suspicious":
+            overall_score = max(35, int((sig_score + meta_score + evas_score + net_score + beh_score) / 5))
+            overall_score = min(74, overall_score)
+        else:
+            overall_score = max(0, int((meta_score + net_score) / 5))
+            overall_score = min(34, overall_score)
 
     # Choose Colors based on verdict
     if verdict == "malicious":
@@ -192,23 +202,31 @@ def generate_pdf_report(record: dict[str, Any]) -> bytes:
     radar_url = f"https://quickchart.io/chart?c={urllib.parse.quote(json.dumps(radar_config))}"
 
     # Build Scanner checklist markup
-    scanners = [
-        ("ClamAV Antivirus Scanner", 
-         "Threat detected" if clamav.get("verdict") == "infected" else "No threats detected",
-         "fail" if clamav.get("verdict") == "infected" else "pass"),
-        
-        ("YARA Signature Rules Engine", 
-         f"{len(yara.get('matches', []))} rules matched" if yara.get("verdict") == "suspicious" else "No rules matched",
-         "fail" if yara.get("verdict") == "suspicious" else "pass"),
-         
-        ("ExifTool Metadata Parser", 
-         f"{len(exif_warnings)} anomalies flagged" if exif_warnings else "Mime-type matching (PASS)",
-         "warning" if exif_warnings or match_status == "mismatch" else "pass"),
-         
-        ("Dynamic Sandbox Analyzer", 
-         "Malicious activity detected" if sandbox_verdict == "malicious" else ("Suspicious activity detected" if sandbox_verdict == "suspicious" else "Behavior clean / No actions"),
-         "fail" if sandbox_verdict == "malicious" else ("warning" if sandbox_verdict == "suspicious" else "pass"))
-    ]
+    if is_zip_bomb:
+        scanners = [
+            ("ClamAV Antivirus Scanner", "Scan skipped for safety: ZIP bomb detected.", "skip"),
+            ("YARA Signature Rules Engine", "Scan skipped for safety: ZIP bomb detected.", "skip"),
+            ("ExifTool Metadata Parser", "Scan skipped for safety: ZIP bomb detected.", "skip"),
+            ("Dynamic Sandbox Analyzer", "Scan skipped for safety: ZIP bomb detected.", "skip")
+        ]
+    else:
+        scanners = [
+            ("ClamAV Antivirus Scanner", 
+             "Threat detected" if clamav.get("verdict") == "infected" else "No threats detected",
+             "fail" if clamav.get("verdict") == "infected" else "pass"),
+            
+            ("YARA Signature Rules Engine", 
+             f"{len(yara.get('matches', []))} rules matched" if yara.get("verdict") == "suspicious" else "No rules matched",
+             "fail" if yara.get("verdict") == "suspicious" else "pass"),
+             
+            ("ExifTool Metadata Parser", 
+             f"{len(exif_warnings)} anomalies flagged" if exif_warnings else "Mime-type matching (PASS)",
+             "warning" if exif_warnings or match_status == "mismatch" else "pass"),
+             
+            ("Dynamic Sandbox Analyzer", 
+             "Malicious activity detected" if sandbox_verdict == "malicious" else ("Suspicious activity detected" if sandbox_verdict == "suspicious" else "Behavior clean / No actions"),
+             "fail" if sandbox_verdict == "malicious" else ("warning" if sandbox_verdict == "suspicious" else "pass"))
+        ]
 
     checklist_html = ""
     for name, desc, status in scanners:
@@ -216,6 +234,8 @@ def generate_pdf_report(record: dict[str, Any]) -> bytes:
             badge_html = '<span class="status-pass">&#10004; PASS</span>'
         elif status == "warning":
             badge_html = '<span class="status-warn">&#9888; WARN</span>'
+        elif status == "skip":
+            badge_html = '<span class="status-skip">&#8854; SKIP</span>'
         else:
             badge_html = '<span class="status-fail">&#10008; THREAT</span>'
             
@@ -431,6 +451,14 @@ def generate_pdf_report(record: dict[str, Any]) -> bytes:
                 font-weight: 700;
                 color: #b91c1c;
                 background-color: #fee2e2;
+                padding: 2px 6px;
+                border-radius: 4px;
+            }}
+            .status-skip {{
+                font-size: 9px;
+                font-weight: 700;
+                color: #475569;
+                background-color: #f1f5f9;
                 padding: 2px 6px;
                 border-radius: 4px;
             }}
