@@ -297,6 +297,95 @@ def preview_file(upload_id: str):
     )
 
 
+@app.get("/preview/{upload_id}/zip-file")
+def preview_zip_file(upload_id: str, file_path: str):
+    record = get_upload_record(upload_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Upload record not found.")
+
+    stored_path = _resolve_stored_path(record)
+    if not stored_path.exists():
+        raise HTTPException(status_code=404, detail="Stored file not found.")
+
+    detected_content_type = str(record["detected_content_type"])
+    original_filename = str(record["original_filename"])
+
+    is_zip = detected_content_type == "application/zip" or original_filename.lower().endswith(
+        (".zip", ".docx", ".xlsx", ".pptx")
+    ) or detected_content_type.startswith("application/vnd.openxmlformats-officedocument.")
+
+    if not is_zip:
+        raise HTTPException(status_code=400, detail="This file type is not a ZIP archive.")
+
+    fingerprint = dict(record.get("fingerprint") or {})
+    if detected_content_type == "application/zip-bomb" or "zip-bomb-detected" in fingerprint.get("indicators", []):
+        raise HTTPException(status_code=400, detail="Decompression is disabled: this archive is flagged as a ZIP bomb.")
+
+    import zipfile
+    import html
+
+    try:
+        with zipfile.ZipFile(stored_path) as archive:
+            norm_path = file_path.replace("\\", "/").lstrip("/")
+            try:
+                info = archive.getinfo(norm_path)
+            except KeyError:
+                raise HTTPException(status_code=404, detail=f"File {file_path} not found in the archive.")
+
+            if info.is_dir():
+                return {
+                    "file_path": file_path,
+                    "content": "This is a directory.",
+                    "is_binary": False,
+                    "size_bytes": 0,
+                }
+
+            ext = Path(norm_path).suffix.lower()
+            previewable_exts = {".txt", ".py", ".js", ".json", ".sh", ".ini", ".md", ".csv", ".yaml", ".yml", ".xml", ".html", ".css", ".sql", ".conf", ".cfg"}
+
+            if ext not in previewable_exts:
+                return {
+                    "file_path": file_path,
+                    "content": "Binary file: inline preview disabled for safety.",
+                    "is_binary": True,
+                    "size_bytes": info.file_size,
+                }
+
+            with archive.open(norm_path) as f:
+                lines = []
+                for _ in range(100):
+                    line_bytes = f.readline()
+                    if not line_bytes:
+                        break
+                    try:
+                        line_text = line_bytes.decode("utf-8")
+                    except UnicodeDecodeError:
+                        return {
+                            "file_path": file_path,
+                            "content": "Binary file: inline preview disabled for safety.",
+                            "is_binary": True,
+                            "size_bytes": info.file_size,
+                        }
+                    lines.append(line_text)
+
+                content = "".join(lines)
+                sanitized_content = html.escape(content)
+
+                if f.readline():
+                    sanitized_content += "\n\n... [truncated: showing only the first 100 lines for length/safety]"
+
+                return {
+                    "file_path": file_path,
+                    "content": sanitized_content,
+                    "is_binary": False,
+                    "size_bytes": info.file_size,
+                }
+    except zipfile.BadZipFile:
+        raise HTTPException(status_code=400, detail="Invalid ZIP archive structure.")
+
+
+
+
 @app.get("/upload/{upload_id}")
 def get_upload_status(upload_id: str):
     record = get_upload_record(upload_id)

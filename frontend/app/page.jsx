@@ -432,6 +432,221 @@ export default function HomePage() {
     }
   }
 
+function buildTree(items) {
+  const root = { name: "Root", isDirectory: true, children: {} };
+  for (const item of items) {
+    const pathParts = item.name.split("/").filter((p) => p);
+    let current = root;
+    for (let i = 0; i < pathParts.length; i++) {
+      const part = pathParts[i];
+      const isLast = i === pathParts.length - 1;
+      const isDir = item.is_directory || !isLast;
+      if (!current.children[part]) {
+        current.children[part] = {
+          name: part,
+          fullName: pathParts.slice(0, i + 1).join("/"),
+          isDirectory: isDir,
+          children: {},
+          size: isLast ? item.size : null,
+          compressed_size: isLast ? item.compressed_size : null,
+        };
+      }
+      current = current.children[part];
+    }
+  }
+
+  function sortTreeNodes(node) {
+    const children = Object.values(node.children);
+    children.sort((a, b) => {
+      if (a.isDirectory && !b.isDirectory) return -1;
+      if (!a.isDirectory && b.isDirectory) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    node.sortedChildren = children;
+    children.forEach(sortTreeNodes);
+  }
+
+  sortTreeNodes(root);
+  return root;
+}
+
+function TreeNode({ node, onSelectFile, selectedFile, expandedDirs, toggleDir }) {
+  if (node.name === "Root") {
+    return (
+      <div className="tree-root">
+        {node.sortedChildren.map((child) => (
+          <TreeNode
+            key={child.fullName}
+            node={child}
+            onSelectFile={onSelectFile}
+            selectedFile={selectedFile}
+            expandedDirs={expandedDirs}
+            toggleDir={toggleDir}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (node.isDirectory) {
+    const isExpanded = expandedDirs[node.fullName] !== false;
+    return (
+      <div className="tree-folder">
+        <div className="tree-folder-header" onClick={() => toggleDir(node.fullName)}>
+          <span className="folder-icon">{isExpanded ? "📂" : "📁"}</span>
+          <span className="folder-name">{node.name}</span>
+        </div>
+        {isExpanded && (
+          <div className="tree-folder-children">
+            {node.sortedChildren.map((child) => (
+              <TreeNode
+                key={child.fullName}
+                node={child}
+                onSelectFile={onSelectFile}
+                selectedFile={selectedFile}
+                expandedDirs={expandedDirs}
+                toggleDir={toggleDir}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const isSelected = selectedFile?.fullName === node.fullName;
+  const ext = "." + node.name.split(".").pop().toLowerCase();
+  const previewableExts = new Set([".txt", ".py", ".js", ".json", ".sh", ".ini", ".md", ".csv", ".yaml", ".yml", ".xml", ".html", ".css", ".sql", ".conf", ".cfg"]);
+  const isPreviewable = previewableExts.has(ext);
+
+  return (
+    <div
+      className={`tree-file ${isSelected ? "selected" : ""} ${isPreviewable ? "previewable" : "binary"}`}
+      onClick={() => onSelectFile(node, isPreviewable)}
+    >
+      <span className="file-icon">{isPreviewable ? "📄" : "⚙️"}</span>
+      <span className="file-name">{node.name}</span>
+      {node.size !== null && node.size !== undefined && (
+        <span className="file-size">({(node.size / 1024).toFixed(1)} KB)</span>
+      )}
+      {isPreviewable && <button className="view-btn">View</button>}
+    </div>
+  );
+}
+
+function ZipExplorer({ items, uploadId }) {
+  const [tree, setTree] = useState(null);
+  const [expandedDirs, setExpandedDirs] = useState({});
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileContent, setFileContent] = useState(null);
+  const [loadingFile, setLoadingFile] = useState(false);
+  const [fileError, setFileError] = useState(null);
+
+  useEffect(() => {
+    if (items) {
+      setTree(buildTree(items));
+    }
+  }, [items]);
+
+  const toggleDir = (fullName) => {
+    setExpandedDirs((prev) => ({
+      ...prev,
+      [fullName]: prev[fullName] === false ? true : false,
+    }));
+  };
+
+  const handleSelectFile = async (node, isPreviewable) => {
+    setSelectedFile(node);
+    setFileContent(null);
+    setFileError(null);
+
+    if (!isPreviewable) {
+      return;
+    }
+
+    setLoadingFile(true);
+    try {
+      const res = await fetch(`/api/preview/${uploadId}/zip-file?file_path=${encodeURIComponent(node.fullName)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setFileError(data.error || "Failed to load preview.");
+      } else {
+        setFileContent(data);
+      }
+    } catch (err) {
+      setFileError("Network error: failed to fetch file content.");
+    } finally {
+      setLoadingFile(false);
+    }
+  };
+
+  if (!tree) {
+    return <p>Building directory structure...</p>;
+  }
+
+  const ext = selectedFile ? "." + selectedFile.name.split(".").pop().toLowerCase() : "";
+  const previewableExts = new Set([".txt", ".py", ".js", ".json", ".sh", ".ini", ".md", ".csv", ".yaml", ".yml", ".xml", ".html", ".css", ".sql", ".conf", ".cfg"]);
+  const isSelectedFilePreviewable = selectedFile && previewableExts.has(ext);
+
+  return (
+    <div className="zipExplorer">
+      <div className="zipTreePane">
+        <div className="zipFileTree">
+          <TreeNode
+            node={tree}
+            onSelectFile={handleSelectFile}
+            selectedFile={selectedFile}
+            expandedDirs={expandedDirs}
+            toggleDir={toggleDir}
+          />
+        </div>
+      </div>
+      <div className="zipContentPane">
+        {selectedFile ? (
+          <>
+            <div className="zipContentPaneHeader">
+              <div>
+                <h5>{selectedFile.fullName}</h5>
+                {selectedFile.size !== null && selectedFile.size !== undefined && (
+                  <span className="zipContentMeta">
+                    Size: {selectedFile.size} bytes
+                    {selectedFile.compressed_size !== undefined
+                      ? ` / ${selectedFile.compressed_size} bytes compressed`
+                      : ""}
+                  </span>
+                )}
+              </div>
+            </div>
+            {loadingFile ? (
+              <p>Fetching file content snippet...</p>
+            ) : fileError ? (
+              <p style={{ color: "var(--bad)" }}>{fileError}</p>
+            ) : !isSelectedFilePreviewable ? (
+              <div className="binary-warning">
+                <span className="binary-warning-icon">⚠️</span>
+                <span className="binary-warning-title">Inline Preview Disabled</span>
+                <span className="binary-warning-desc">
+                  For security reasons, inline previews are disabled for binary files (e.g., executables, images, or compressed folders).
+                </span>
+              </div>
+            ) : fileContent ? (
+              <pre
+                className="zipFileContent"
+                dangerouslySetInnerHTML={{ __html: fileContent.content }}
+              />
+            ) : null}
+          </>
+        ) : (
+          <div className="zip-explorer-empty">
+            <span className="zip-explorer-empty-icon">📂</span>
+            <p>Select a file from the explorer pane to preview its contents safely.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
   function renderPreviewPanel(preview, previewState) {
     if (previewState === "loading") {
       return <p>Generating safe preview...</p>;
@@ -462,6 +677,16 @@ export default function HomePage() {
           src={preview.preview_url}
           title={preview.preview_title}
         />
+      );
+    }
+
+    if (preview?.preview_kind === "archive-listing") {
+      return (
+        <div className="previewStructured">
+          <h4>{preview?.preview_title ?? "Safe preview"}</h4>
+          <p>{preview?.summary ?? "Preview not loaded yet."}</p>
+          <ZipExplorer items={preview.items} uploadId={preview.upload_id} />
+        </div>
       );
     }
 

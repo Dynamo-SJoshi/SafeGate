@@ -1550,6 +1550,269 @@ pre {
   opacity: 1;
 }
 
+/* Interactive ZIP Explorer Styles */
+.zipExplorer {
+  display: flex;
+  flex-direction: row;
+  border: 1px solid rgba(140, 170, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(6, 12, 22, 0.65);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  min-height: 450px;
+  max-height: 600px;
+  margin-top: 15px;
+}
+
+.zipTreePane {
+  flex: 0 0 35%;
+  border-right: 1px solid rgba(140, 170, 255, 0.12);
+  padding: 16px;
+  overflow-y: auto;
+  background: rgba(10, 18, 36, 0.4);
+}
+
+.zipContentPane {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: rgba(6, 12, 22, 0.35);
+}
+
+.zipFileTree {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tree-folder {
+  display: flex;
+  flex-direction: column;
+}
+
+.tree-folder-header {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 8px;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #c9d8ff;
+  user-select: none;
+}
+
+.tree-folder-header:hover {
+  background: rgba(140, 170, 255, 0.08);
+  color: #fff;
+}
+
+.tree-folder-children {
+  padding-left: 12px;
+  border-left: 1px dashed rgba(140, 170, 255, 0.12);
+  margin-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tree-file {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 8px;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #a5b8e1;
+}
+
+.tree-file:hover {
+  background: rgba(140, 170, 255, 0.08);
+  color: #fff;
+}
+
+.tree-file.selected {
+  background: rgba(124, 155, 255, 0.15);
+  border: 1px solid rgba(124, 155, 255, 0.25);
+  color: #fff;
+}
+
+.tree-file.binary {
+  opacity: 0.65;
+}
+
+.file-name {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-grow: 1;
+}
+
+.file-size {
+  font-size: 0.75rem;
+  color: var(--muted, #64748b);
+  flex-shrink: 0;
+}
+
+.tree-file .view-btn {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  background: rgba(124, 155, 255, 0.12);
+  border: 1px solid rgba(124, 155, 255, 0.3);
+  color: #c9d8ff;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.tree-file:hover .view-btn,
+.tree-file.selected .view-btn {
+  opacity: 1;
+}
+
+.tree-file .view-btn:hover {
+  background: rgba(124, 155, 255, 0.3);
+  color: #fff;
+  border-color: rgba(124, 155, 255, 0.5);
+}
+
+.zipContentPaneHeader {
+  border-bottom: 1px solid rgba(140, 170, 255, 0.12);
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.zipContentPaneHeader h5 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #fff;
+  font-family: var(--font-mono, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zipContentMeta {
+  font-size: 0.75rem;
+  color: var(--muted, #64748b);
+}
+
+.zipFileContent {
+  flex: 1;
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+  background: rgba(4, 8, 16, 0.75);
+  border: 1px solid rgba(140, 170, 255, 0.1);
+  border-radius: 10px;
+  padding: 14px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #e2e8f0;
+  line-height: 1.5;
+}
+
+.binary-warning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 200px;
+  color: #ff8b8b;
+  text-align: center;
+  padding: 24px;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px dashed rgba(239, 68, 68, 0.25);
+  border-radius: 12px;
+  gap: 12px;
+}
+
+.binary-warning-icon {
+  font-size: 2.2rem;
+}
+
+.binary-warning-title {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.binary-warning-desc {
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+.zip-explorer-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 250px;
+  color: #94a3b8;
+  text-align: center;
+  padding: 24px;
+}
+
+.zip-explorer-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  opacity: 0.7;
+}
+
+/* Custom Scrollbars for ZIP Explorer */
+.zipTreePane::-webkit-scrollbar,
+.zipContentPane::-webkit-scrollbar,
+.zipFileContent::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.zipTreePane::-webkit-scrollbar-track,
+.zipContentPane::-webkit-scrollbar-track,
+.zipFileContent::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.zipTreePane::-webkit-scrollbar-thumb,
+.zipContentPane::-webkit-scrollbar-thumb,
+.zipFileContent::-webkit-scrollbar-thumb {
+  background: rgba(140, 170, 255, 0.15);
+  border-radius: 3px;
+}
+
+.zipTreePane::-webkit-scrollbar-thumb:hover,
+.zipContentPane::-webkit-scrollbar-thumb:hover,
+.zipFileContent::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 170, 255, 0.3);
+}
+
+@media (max-width: 768px) {
+  .zipExplorer {
+    flex-direction: column;
+    max-height: none;
+    min-height: auto;
+  }
+  .zipTreePane {
+    flex: none;
+    border-right: none;
+    border-bottom: 1px solid rgba(140, 170, 255, 0.12);
+    max-height: 250px;
+  }
+}
+
+
 
 
 
