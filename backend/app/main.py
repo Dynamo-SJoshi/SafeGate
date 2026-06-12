@@ -67,8 +67,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="SafeGate API", version="0.1.0", lifespan=lifespan)
 
-UPLOAD_ROOT = Path(tempfile.gettempdir()) / "safegate" / "uploads"
-REMOTE_ROOT = Path(tempfile.gettempdir()) / "safegate" / "remote"
+if os.path.exists("/app/storage"):
+    _storage_base = Path("/app/storage")
+elif os.path.exists("./storage"):
+    _storage_base = Path("./storage")
+else:
+    _storage_base = Path(tempfile.gettempdir()) / "safegate"
+
+UPLOAD_ROOT = _storage_base / "uploads"
+REMOTE_ROOT = _storage_base / "remote"
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)

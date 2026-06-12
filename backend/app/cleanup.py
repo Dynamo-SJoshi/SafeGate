@@ -1,14 +1,22 @@
 import asyncio
 import logging
 import tempfile
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from .database import db_connection
 
 logger = logging.getLogger("safegate.cleanup")
 
-UPLOAD_ROOT = Path(tempfile.gettempdir()) / "safegate" / "uploads"
-REMOTE_ROOT = Path(tempfile.gettempdir()) / "safegate" / "remote"
+if os.path.exists("/app/storage"):
+    _storage_base = Path("/app/storage")
+elif os.path.exists("./storage"):
+    _storage_base = Path("./storage")
+else:
+    _storage_base = Path(tempfile.gettempdir()) / "safegate"
+
+UPLOAD_ROOT = _storage_base / "uploads"
+REMOTE_ROOT = _storage_base / "remote"
 
 async def cleanup_loop(file_retention_minutes: int = 15, db_retention_hours: int = 720) -> None:
     """

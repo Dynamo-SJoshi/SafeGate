@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -13,8 +14,15 @@ from app.exif_scanner import extract_metadata_with_exiftool
 logger = logging.getLogger("safegate-worker")
 logger.setLevel(logging.INFO)
 
-UPLOAD_ROOT = Path(tempfile.gettempdir()) / "safegate" / "uploads"
-REMOTE_ROOT = Path(tempfile.gettempdir()) / "safegate" / "remote"
+if os.path.exists("/app/storage"):
+    _storage_base = Path("/app/storage")
+elif os.path.exists("./storage"):
+    _storage_base = Path("./storage")
+else:
+    _storage_base = Path(tempfile.gettempdir()) / "safegate"
+
+UPLOAD_ROOT = _storage_base / "uploads"
+REMOTE_ROOT = _storage_base / "remote"
 
 
 def resolve_stored_path(record: dict[str, Any]) -> Path:
