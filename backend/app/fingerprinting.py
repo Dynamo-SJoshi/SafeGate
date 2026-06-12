@@ -149,6 +149,23 @@ def detect_file_type(
 def detect_zip_based_type(file_path: Path, indicators: list[str]) -> tuple[str, str, list[str], str]:
     try:
         with zipfile.ZipFile(file_path) as archive:
+            # 1. In-Memory Header Inspection for Zip Bombs
+            total_uncompressed_size = 0
+            has_huge_file = False
+            for info in archive.infolist():
+                total_uncompressed_size += info.file_size
+                if info.file_size > 500 * 1024 * 1024:
+                    has_huge_file = True
+
+            compressed_size = file_path.stat().st_size
+            ratio = total_uncompressed_size / max(compressed_size, 1)
+
+            if (ratio > 100.0 and total_uncompressed_size > 20 * 1024 * 1024) or has_huge_file:
+                indicators.append("zip-bomb-detected")
+                indicators.append(f"zip-bomb-ratio:{ratio:.1f}")
+                indicators.append(f"zip-bomb-uncompressed-bytes:{total_uncompressed_size}")
+                return "application/zip-bomb", "application/zip", indicators, "high"
+
             names = set(archive.namelist())
 
             if "[Content_Types].xml" in names:

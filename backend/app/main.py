@@ -381,7 +381,20 @@ def _analyze_and_store_file(
 
     # Compute analysis_state
     fingerprint_dict = fingerprint.to_dict()
-    analysis_state = "pending"
+    if fingerprint.detected_type == "application/zip-bomb":
+        analysis_state = "malicious"
+        static_analysis = {
+            "zip_bomb_detection": {
+                "verdict": "malicious",
+                "details": "ZIP bomb signature detected via in-memory header inspection (extremely high compression ratio or single-file size anomaly)."
+            },
+            "clamav": {"verdict": "skipped", "details": "Scan skipped for safety: ZIP bomb detected."},
+            "yara": {"verdict": "skipped", "details": "Scan skipped for safety: ZIP bomb detected."},
+            "exiftool": {"status": "skipped", "metadata": {}},
+            "sandbox": {"verdict": "skipped", "reason": "Scan skipped for safety: ZIP bomb detected.", "executed": False}
+        }
+    else:
+        analysis_state = "pending"
 
     try:
         save_upload_record(
@@ -402,8 +415,9 @@ def _analyze_and_store_file(
             static_analysis=static_analysis,
             candidate_details=candidate_details,
         )
-        # Enqueue the background scanning task
-        scan_queue.enqueue("workers.worker.process_scan_job", upload_id)
+        # Enqueue the background scanning task if pending
+        if analysis_state == "pending":
+            scan_queue.enqueue("workers.worker.process_scan_job", upload_id)
     except Exception as exc:
         if stored_path.exists():
             stored_path.unlink(missing_ok=True)

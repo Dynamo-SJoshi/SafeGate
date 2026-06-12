@@ -19,6 +19,7 @@ services:
       - ./workers:/app/workers
       - /var/run/docker.sock:/var/run/docker.sock
       - ./sandbox:/app/sandbox
+      - ./storage:/app/storage
     depends_on:
       - clamav
       - redis
@@ -39,6 +40,7 @@ services:
       - ./workers:/app/workers
       - /var/run/docker.sock:/var/run/docker.sock
       - ./sandbox:/app/sandbox
+      - ./storage:/app/storage
     depends_on:
       - clamav
       - redis

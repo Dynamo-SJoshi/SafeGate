@@ -159,14 +159,52 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
         return get_upload_record(upload_id)
 
     # Run the actual analyzers
+    # 1. Skip all scans if the file is a ZIP bomb
+    fingerprint = record.get("fingerprint") or {}
+    detected_type = fingerprint.get("detected_type")
+    
+    if detected_type == "application/zip-bomb":
+        logger.info(f"Worker skipping scan: ZIP bomb detected for {upload_id}")
+        static_analysis = {
+            "zip_bomb_detection": {
+                "verdict": "malicious",
+                "details": "ZIP bomb signature detected via in-memory header inspection (extremely high compression ratio or single-file size anomaly)."
+            },
+            "clamav": {"verdict": "skipped", "details": "Scan skipped for safety: ZIP bomb detected."},
+            "yara": {"verdict": "skipped", "details": "Scan skipped for safety: ZIP bomb detected."},
+            "exiftool": {"status": "skipped", "metadata": {}},
+            "sandbox": {"verdict": "skipped", "reason": "Scan skipped for safety: ZIP bomb detected.", "executed": False}
+        }
+        save_upload_record(
+            upload_id=upload_id,
+            original_filename=str(record["original_filename"]),
+            stored_filename=stored_path.name,
+            content_type=str(record["content_type"]),
+            size_bytes=int(record["size_bytes"]),
+            sha256=str(record["sha256"]),
+            fingerprint=fingerprint,
+            analysis_state="malicious",
+            source_url=record.get("source_url"),
+            source_kind=str(record["source_kind"]),
+            source_state=str(record["source_state"]),
+            selected_candidate_url=record.get("selected_candidate_url"),
+            candidate_urls=record.get("candidate_urls"),
+            client_ip=record.get("client_ip"),
+            static_analysis=static_analysis,
+            candidate_details=record.get("candidate_details"),
+        )
+        return get_upload_record(upload_id)
+
+    # 2. Run the actual analyzers (isolated where possible)
     logger.info(f"Running ClamAV scan on: {stored_path.name}")
     clamav_res = scan_file_with_clamav(stored_path)
     
-    logger.info(f"Running YARA scan on: {stored_path.name}")
-    yara_res = scan_file_with_yara(stored_path)
+    logger.info(f"Running YARA and ExifTool in isolated container for: {stored_path.name}")
+    from sandbox.sandbox_runner import run_isolated_scans
+    isolated_res = run_isolated_scans(upload_id, stored_path)
     
-    logger.info(f"Extracting ExifTool metadata from: {stored_path.name}")
-    exif_res = extract_metadata_with_exiftool(stored_path)
+    yara_res = isolated_res.get("yara", {"verdict": "error", "details": f"Isolated scan failed: {isolated_res.get('error', 'Unknown error')}"})
+    exif_res = isolated_res.get("exiftool", {"status": "error", "details": f"Isolated scan failed: {isolated_res.get('error', 'Unknown error')}"})
 
     logger.info(f"Running isolated Dynamic Sandbox on: {stored_path.name}")
     from sandbox.sandbox_runner import run_in_sandbox

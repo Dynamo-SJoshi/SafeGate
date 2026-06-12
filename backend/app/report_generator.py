@@ -39,7 +39,19 @@ def generate_pdf_report(record: dict[str, Any]) -> bytes:
     sandbox = static_analysis.get("sandbox") or {}
 
     # 1. Executive Summary & Verdict Styling
-    if verdict == "malicious":
+    fingerprint = record.get("fingerprint") or {}
+    detected_type = fingerprint.get("detected_type") or "unknown"
+
+    if detected_type == "application/zip-bomb" or "zip-bomb-detected" in fingerprint.get("indicators", []):
+        verdict_title = "MALICIOUS / ZIP BOMB DETECTED"
+        verdict_class = "badge-danger"
+        summary_text = (
+            "CRITICAL WARNING: This file is a ZIP Bomb (Decompression Bomb) designed to cause resource exhaustion "
+            "and Denial of Service (DoS). SafeGate's in-memory header audit detected an anomalous compression ratio "
+            "or excessively large uncompressed file structure. Decompressing this archive poses a severe threat of crash or "
+            "instability to the execution host. SafeGate has blocked further analysis and skipped secondary scanning."
+        )
+    elif verdict == "malicious":
         verdict_title = "MALICIOUS / THREAT DETECTED"
         verdict_class = "badge-danger"
         summary_text = (
@@ -635,34 +647,51 @@ def get_report_data(record: dict[str, Any]) -> dict[str, Any]:
         beh_score = 60
 
     overall_score = 0
-    if verdict == "malicious":
-        overall_score = max(75, int((sig_score + evas_score + net_score + beh_score) / 4))
-        overall_score = min(100, overall_score)
-    elif verdict == "suspicious":
-        overall_score = max(35, int((sig_score + meta_score + evas_score + net_score + beh_score) / 5))
-        overall_score = min(74, overall_score)
-    else:
-        overall_score = max(0, int((meta_score + net_score) / 5))
-        overall_score = min(34, overall_score)
+    detected_type = fingerprint.get("detected_type") or "unknown"
+    is_zip_bomb = detected_type == "application/zip-bomb" or "zip-bomb-detected" in fingerprint.get("indicators", [])
 
-    if verdict == "malicious":
+    if is_zip_bomb:
+        overall_score = 100
+        sig_score = 100
+        meta_score = 100
+        evas_score = 100
+        net_score = 0
+        beh_score = 0
         summary_text = (
-            "WARNING: Critical security risks were detected. Active threat signatures (from antivirus "
-            "or security rules) were matched, or highly suspicious sandbox activities (such as network calls "
-            "or process spawning) were noted during execution. Do not trust or run this file."
-        )
-    elif verdict == "suspicious":
-        summary_text = (
-            "CAUTION: Potential risk indicators were found. Though no outright virus matched, "
-            "anomalies in the metadata, file headers, or sandbox behavior patterns suggest a suspicious "
-            "profile. Use with severe caution."
+            "CRITICAL WARNING: This file is flagged as a ZIP Bomb (Decompression Bomb). "
+            "SafeGate's in-memory header inspection detected an extremely high compression ratio or single-file size anomaly. "
+            "Decompressing this archive poses a severe threat of Denial of Service (DoS) and system instability. "
+            "Execution and secondary scanning have been bypassed for safety."
         )
     else:
-        summary_text = (
-            "CLEAN: This file is verified safe. Comprehensive security scans and run-time sandbox "
-            "behavior checks were executed. No indicators of malware, malicious actions, or evasion tactics "
-            "were detected."
-        )
+        if verdict == "malicious":
+            overall_score = max(75, int((sig_score + evas_score + net_score + beh_score) / 4))
+            overall_score = min(100, overall_score)
+        elif verdict == "suspicious":
+            overall_score = max(35, int((sig_score + meta_score + evas_score + net_score + beh_score) / 5))
+            overall_score = min(74, overall_score)
+        else:
+            overall_score = max(0, int((meta_score + net_score) / 5))
+            overall_score = min(34, overall_score)
+
+        if verdict == "malicious":
+            summary_text = (
+                "WARNING: Critical security risks were detected. Active threat signatures (from antivirus "
+                "or security rules) were matched, or highly suspicious sandbox activities (such as network calls "
+                "or process spawning) were noted during execution. Do not trust or run this file."
+            )
+        elif verdict == "suspicious":
+            summary_text = (
+                "CAUTION: Potential risk indicators were found. Though no outright virus matched, "
+                "anomalies in the metadata, file headers, or sandbox behavior patterns suggest a suspicious "
+                "profile. Use with severe caution."
+            )
+        else:
+            summary_text = (
+                "CLEAN: This file is verified safe. Comprehensive security scans and run-time sandbox "
+                "behavior checks were executed. No indicators of malware, malicious actions, or evasion tactics "
+                "were detected."
+            )
 
     return {
         "filename": filename,
