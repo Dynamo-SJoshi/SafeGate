@@ -325,3 +325,52 @@ Deterministic PDF reports with WeasyPrint and QuickChart:
   - `/report/{upload_id}/pdf` to download or stream the generated PDF report.
 - Upgraded the frontend dashboard (`frontend/app/SecurityReport.jsx`) to show detailed risk charts and download PDF reports directly, fixing route mismatches and adding informative tooltips.
 
+2026-06-12 22:15:00 +05:30
+--------------------------
+
+Security Sandbox Expansion, Redis Queue Integration, ZIP Bomb Prevention, and Future Feature Roadmap:
+- Replaced backend in-memory queue (`asyncio.Queue`) with a Redis-backed RQ job queue and decoupled worker container (`workers/worker.py`), enabling async background execution that won't block the API.
+- Implemented In-Memory Header Inspection for ZIP bombs inside `detect_zip_based_type` in `backend/app/fingerprinting.py`, rejecting decompressed ratios >100:1 and size thresholds instantly at the upload gateway.
+- Tokenized ExifTool and YARA scanner executions inside ephemeral, resource-constrained, network-less Docker containers to isolate database credentials and protect host resources.
+- Ensured consistent PDF and interactive dashboard status reporting for bypassed scans, rendering bypassed scanners as `Skipped` with a grey badge and showing a risk score of `100/100` for threat indices.
+- Added Future Feature Roadmap detailing Sandbox expansion and Interactive ZIP File Previews.
+
+Future Feature Roadmap:
+1. What else can we use the sandbox for?
+   A dynamic sandbox works by executing the file in an isolated container and monitoring its behavior (system calls, network traffic, file modifications, process creation, etc.). Currently, SafeGate's MVP sandbox only runs python (.py) scripts.
+
+   Here is how we can expand the sandbox's capabilities for other file types:
+
+   PowerShell (.ps1) & Bash (.sh) Scripts:
+   - Why: Extremely common vectors for malware loaders and payload execution.
+   - How: Since our sandbox container runs Linux, we can install Linux PowerShell (pwsh) and execute .ps1/.sh scripts in the container while monitoring their process trees and outbound network sockets.
+   JavaScript & Node.js (.js) Scripts:
+   - Why: Used in malicious npm packages or obfuscated scripts.
+   - How: Execute them via Node.js in the sandbox, tracing runtime file and network system calls.
+   Linux Binaries (ELF) & Windows Executables (.exe/.msi):
+   - Why: Executables are the primary form of compiled malware.
+   - How:
+     - For Linux binaries, we can run them directly in the sandbox container utilizing strace or sysdig to audit system behavior.
+     - For Windows executables, full sandboxing typically requires a Windows Virtual Machine guest (like Cuckoo/CAPE Sandbox). However, for a lightweight containerized setup, we can run them using Wine (Windows Emulation) inside our Linux container to capture basic registry manipulations, child process spawns, and network requests.
+   HTML Attachments & URL redirects (.html):
+   - Why: Used in credential-harvesting phishing campaigns.
+   - How: Execute the file inside a headless browser (like Playwright or Puppeteer) within the sandbox to capture screenshot previews, detect obfuscated login forms, and record redirect hops.
+
+2. How to improve ZIP File Previews
+   Currently, SafeGate only extracts and displays the file headers (names and sizes) from ZIP archives.
+
+   To allow users to safely inspect the actual contents of files inside a ZIP archive before downloading them, we can implement an Interactive ZIP Explorer. Here is how the improved flow would work:
+
+   Proposed Architecture:
+   Interactive File Browser (Frontend):
+   - Instead of a bulleted list, the ZIP preview will render a tree view or a clickable list of files.
+   - Files with previewable extensions (e.g. .txt, .py, .js, .json, .sh, .ini, .md, .csv) will show a "View" button.
+   On-Demand Content Fetching (Backend):
+   - Create a new endpoint: GET /preview/{upload_id}/zip-file?file_path=path/to/file.py
+   - When clicked, the backend opens the ZIP archive, extracts only the selected file, reads its raw text, limits it to the first 50–100 lines (to avoid browser crashes on huge files), sanitizes it, and returns it.
+   Preview Pane (UI split):
+   - Modify the preview panel in the dashboard to have a side-by-side layout:
+     - Left Side: File tree list showing folder structures and icons.
+     - Right Side: Code/text viewer container showing the secure text snippet of the selected file.
+     - If the clicked file is binary (e.g. a .exe or .png inside the ZIP), the viewer will safely show: "Binary file: inline preview disabled for safety."
+
