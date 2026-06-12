@@ -21,6 +21,30 @@ services:
       - ./sandbox:/app/sandbox
     depends_on:
       - clamav
+      - redis
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: rq worker scans --url redis://redis:6379/0
+    env_file:
+      - ./backend/.env
+    environment:
+      - CLAMAV_URL=tcp://clamav:3310
+    volumes:
+      - ./backend:/app
+      - /app/.venv # Ignore local virtual environment inside container
+      - ./analyzers:/app/analyzers
+      - ./workers:/app/workers
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./sandbox:/app/sandbox
+    depends_on:
+      - clamav
+      - redis
+
+  redis:
+    image: redis:7-alpine
 
   frontend:
     build:

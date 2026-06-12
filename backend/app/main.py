@@ -33,37 +33,13 @@ from .security import validate_and_normalize_url
 
 load_local_env_files()
 
-# Global scan queue
-scan_queue: asyncio.Queue[str] = asyncio.Queue()
+# Global scan queue (Redis backed)
+from redis import Redis
+from rq import Queue
+import os
 
-def get_pending_upload_ids() -> list[str]:
-    try:
-        with db_connection() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT upload_id FROM uploads WHERE analysis_state = 'pending'")
-                records = cursor.fetchall()
-                return [str(r["upload_id"]) for r in records]
-    except Exception as exc:
-        print(f"Error querying pending upload IDs on startup: {exc}")
-        return []
-
-async def resident_worker_loop():
-    """Loops indefinitely, processing scan jobs from the queue."""
-    from workers.worker import process_scan_job
-    print("Resident scan worker loop started.")
-    while True:
-        try:
-            upload_id = await scan_queue.get()
-            print(f"Worker picked up upload_id: {upload_id}")
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, process_scan_job, upload_id)
-            scan_queue.task_done()
-        except asyncio.CancelledError:
-            print("Resident scan worker loop cancelled.")
-            break
-        except Exception as exc:
-            print(f"Error in resident scan worker: {exc}")
-            await asyncio.sleep(1)
+redis_conn = Redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379/0"))
+scan_queue = Queue("scans", connection=redis_conn)
 
 
 
@@ -79,21 +55,12 @@ async def lifespan(app: FastAPI):
 
     # Start the background cleanup task on startup (runs every 5 minutes by default)
     cleanup_task = asyncio.create_task(cleanup_loop())
-    # Start resident scan worker task
-    worker_task = asyncio.create_task(resident_worker_loop())
     
-    # Enqueue existing pending tasks from database
-    pending_ids = get_pending_upload_ids()
-    print(f"Startup: Found {len(pending_ids)} pending scans to queue.")
-    for uid in pending_ids:
-        await scan_queue.put(uid)
-        
     yield
     # Cancel tasks on shutdown
     cleanup_task.cancel()
-    worker_task.cancel()
     try:
-        await asyncio.gather(cleanup_task, worker_task, return_exceptions=True)
+        await asyncio.gather(cleanup_task, return_exceptions=True)
     except Exception:
         pass
 
@@ -245,7 +212,7 @@ def analyze_url(payload: UrlAnalyzeRequest, request: Request):
             source_state="pending_fetch",
             client_ip=client_ip,
         )
-        scan_queue.put_nowait(upload_id)
+        scan_queue.enqueue("workers.worker.process_scan_job", upload_id)
     except Exception as exc:
         raise HTTPException(
             status_code=503,
@@ -436,7 +403,7 @@ def _analyze_and_store_file(
             candidate_details=candidate_details,
         )
         # Enqueue the background scanning task
-        scan_queue.put_nowait(upload_id)
+        scan_queue.enqueue("workers.worker.process_scan_job", upload_id)
     except Exception as exc:
         if stored_path.exists():
             stored_path.unlink(missing_ok=True)

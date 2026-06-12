@@ -275,3 +275,53 @@ Gemini high-demand fallback:
 - SafeGate now retries transient Gemini errors like HTTP `429` and `503`, then falls back to a local SafeGate summary if Gemini is busy.
 - The fallback keeps the AI panel usable even when the provider says it is experiencing high demand.
 - The UI now shows a small note when the fallback summary is being used.
+
+UI styling and layout refinements:
+- Timestamp: `2026-06-01 20:53:24 +05:30`
+- Tightened button sizing, rethemed the active buttons, and unified the layout design.
+- Removed the duplicate candidate links list from the frontend view to reduce clutter and improve interface clarity.
+
+Dockerization and static anti-malware analyzers:
+- Timestamp: `2026-06-09 01:37:14 +05:30`
+- Dockerized the entire application, adding `Dockerfile` configs for both backend and frontend, and set up a unified `docker-compose.yml` to orchestrate PostgreSQL, Redis, backend API, worker, and frontend.
+- Implemented static analysis engines:
+  - ClamAV scanning: Streams uploaded/downloaded files to the ClamAV daemon over TCP socket.
+  - YARA signatures: Integrates the YARA rules engine using `yara-python` to compile rules and match files against custom signature patterns (configured in `analyzers/rules.yar`).
+  - ExifTool metadata parser: Extracts metadata dynamically using ExifTool to flag anomalies and verify structure.
+- Redesigned the frontend results panel to display these static security scanner results.
+
+Asynchronous processing queue, worker, and dynamic sandbox:
+- Timestamp: `2026-06-09 12:11:24 +05:30`
+- Implemented an asynchronous backend scanning queue with a resident background worker.
+- Connected the worker to run static scans (ClamAV, YARA, ExifTool) asynchronously to prevent API request blockages.
+- Implemented ClamAV scan timeout handling and fallback modes.
+- Added a dynamic sandboxing engine (`sandbox/sandbox_runner.py`):
+  - Uses the raw Docker UNIX socket (`/var/run/docker.sock`) to dynamically spin up clean, isolated, read-only Python containers (`python:3.10-slim`).
+  - Executes uploaded Python (.py) scripts inside the container with network access disabled (`none`), restricted memory (128MB RAM), and strict CPU allocation limits (0.5 CPUs).
+  - Automatically parses stdout/stderr logs for malicious behaviors (e.g. attempting to write to read-only filesystem or requesting network sockets) and yields high-priority alerts.
+- Configured frontend polling (`frontend/app/api/upload/[id]/route.js`) to follow scan state and query final sandbox outputs.
+- Updated the Startup Guide with details on background scans and sandboxing setup.
+
+Persisted candidate details and extension-based prioritization:
+- Timestamp: `2026-06-09 12:37:26 +05:30`
+- Extended the database schema to persist candidate link URLs, scoring records, and evaluation reasons directly in PostgreSQL.
+- Implemented an extension hierarchy prioritizer that ranks URL targets using file extension patterns (e.g. preferring executable/archive types over raw HTML) for safer auto-following.
+
+Worker stability and security scanner refinements:
+- Timestamp: `2026-06-09 14:51:08 +05:30`
+- Fixed a startup loop condition in the background worker by marking missing/deleted files as database errors rather than indefinitely retrying.
+- Added file static analysis results into Gemini compaction prompt payloads for better contextual AI summarization.
+- Refined YARA pattern matching rules to ignore false positive matches on benign binary files.
+
+Deterministic PDF reports with WeasyPrint and QuickChart:
+- Timestamp: `2026-06-11 02:08:51 +05:30`
+- Implemented a PDF report generator (`backend/app/report_generator.py`):
+  - Automatically calculates risk score vectors across 5 categories: Signatures, Metadata, Evasion Risk, Network Activity, and Behavior Risk.
+  - Integrates the QuickChart service to render custom 5-axis Radar charts illustrating the risk profile.
+  - Compiles an executive summary, file information, and multi-layer scanner checklists into clean, stylized HTML.
+  - Converts HTML templates into deterministic PDF files on-demand using WeasyPrint.
+- Exposed new API routes:
+  - `/report/{upload_id}` for structured JSON report data.
+  - `/report/{upload_id}/pdf` to download or stream the generated PDF report.
+- Upgraded the frontend dashboard (`frontend/app/SecurityReport.jsx`) to show detailed risk charts and download PDF reports directly, fixing route mismatches and adding informative tooltips.
+
