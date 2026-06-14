@@ -39,6 +39,6 @@ services:
     startCommand: npm run start
     envVars:
       - key: BACKEND_URL
-        value: http://safegate-backend:8000
+        sync: false # Must be set to the backend's PUBLIC external URL
       - key: NODE_VERSION
         value: "20"
