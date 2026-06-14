@@ -14,20 +14,20 @@ services:
     startCommand: python run_services.py
     envVars:
       - key: REDIS_URL
-        fromRedis: safegate-redis
-        type: connectionString
+        fromService:
+          type: redis
+          name: safegate-redis
+          property: connectionString
+      - key: PORT
+        value: "8000"
       - key: ENABLE_CLAMAV
         value: "false"
       - key: ENABLE_SANDBOX
         value: "false"
       - key: DATABASE_URL
-        sync: true # User will copy their Supabase URL here
+        sync: false
       - key: GEMINI_API_KEY
-        sync: true # User will paste their Gemini API key here
-      - key: PUBLIC_BACKEND_URL
-        fromService:
-          name: safegate-backend
-          type: host
+        sync: false
 
   # 3. Next.js React Frontend
   - type: web
@@ -39,6 +39,4 @@ services:
     startCommand: npm run start
     envVars:
       - key: BACKEND_URL
-        fromService:
-          name: safegate-backend
-          type: host
+        value: http://safegate-backend:8000

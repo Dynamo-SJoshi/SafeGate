@@ -267,7 +267,7 @@ def preview_upload(payload: PreviewRequest, request: Request):
     )
     if preview.preview_kind == "renderable-file":
         import os
-        public_url = os.environ.get("PUBLIC_BACKEND_URL")
+        public_url = os.environ.get("PUBLIC_BACKEND_URL") or os.environ.get("RENDER_EXTERNAL_URL")
         if public_url:
             preview.preview_url = f"{public_url.rstrip('/')}/preview/{record['upload_id']}/file"
         else:
