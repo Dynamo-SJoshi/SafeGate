@@ -212,20 +212,20 @@ def generate_pdf_report(record: dict[str, Any]) -> bytes:
     else:
         scanners = [
             ("ClamAV Antivirus Scanner", 
-             "Threat detected" if clamav.get("verdict") == "infected" else "No threats detected",
-             "fail" if clamav.get("verdict") == "infected" else "pass"),
+             "Scan skipped" if clamav.get("verdict") == "skipped" else ("Threat detected" if clamav.get("verdict") == "infected" else "No threats detected"),
+             "skip" if clamav.get("verdict") == "skipped" else ("fail" if clamav.get("verdict") == "infected" else "pass")),
             
             ("YARA Signature Rules Engine", 
-             f"{len(yara.get('matches', []))} rules matched" if yara.get("verdict") == "suspicious" else "No rules matched",
-             "fail" if yara.get("verdict") == "suspicious" else "pass"),
+             "Scan skipped" if yara.get("verdict") == "skipped" else (f"{len(yara.get('matches', []))} rules matched" if yara.get("verdict") == "suspicious" else "No rules matched"),
+             "skip" if yara.get("verdict") == "skipped" else ("fail" if yara.get("verdict") == "suspicious" else "pass")),
              
             ("ExifTool Metadata Parser", 
-             f"{len(exif_warnings)} anomalies flagged" if exif_warnings else "Mime-type matching (PASS)",
-             "warning" if exif_warnings or match_status == "mismatch" else "pass"),
+             "Scan skipped" if exif.get("status") == "skipped" else (f"{len(exif_warnings)} anomalies flagged" if exif_warnings else "Mime-type matching (PASS)"),
+             "skip" if exif.get("status") == "skipped" else ("warning" if exif_warnings or match_status == "mismatch" else "pass")),
              
             ("Dynamic Sandbox Analyzer", 
-             "Malicious activity detected" if sandbox_verdict == "malicious" else ("Suspicious activity detected" if sandbox_verdict == "suspicious" else "Behavior clean / No actions"),
-             "fail" if sandbox_verdict == "malicious" else ("warning" if sandbox_verdict == "suspicious" else "pass"))
+             "Scan skipped" if sandbox_verdict == "skipped" else ("Malicious activity detected" if sandbox_verdict == "malicious" else ("Suspicious activity detected" if sandbox_verdict == "suspicious" else "Behavior clean / No actions")),
+             "skip" if sandbox_verdict == "skipped" else ("fail" if sandbox_verdict == "malicious" else ("warning" if sandbox_verdict == "suspicious" else "pass")))
         ]
 
     checklist_html = ""

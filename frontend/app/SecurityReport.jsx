@@ -256,7 +256,7 @@ export default function SecurityReport({ uploadId, onClose }) {
                       let clamavClass = "pass";
 
                       if (scanners.clamav?.verdict === "skipped") {
-                        clamavDetail = "Scan skipped for safety: ZIP bomb detected.";
+                        clamavDetail = scanners.clamav.details || "Scan skipped for safety: ZIP bomb detected.";
                         clamavStatus = "Skipped";
                         clamavClass = "skip";
                       } else if (scanners.clamav?.verdict === "infected") {
@@ -297,7 +297,7 @@ export default function SecurityReport({ uploadId, onClose }) {
                       let yaraClass = "pass";
 
                       if (scanners.yara?.verdict === "skipped") {
-                        yaraDetail = "Scan skipped for safety: ZIP bomb detected.";
+                        yaraDetail = scanners.yara.details || "Scan skipped for safety: ZIP bomb detected.";
                         yaraStatus = "Skipped";
                         yaraClass = "skip";
                       } else if (scanners.yara?.verdict === "suspicious") {
@@ -340,7 +340,7 @@ export default function SecurityReport({ uploadId, onClose }) {
                       let exifClass = "pass";
 
                       if (scanners.exiftool?.status === "skipped") {
-                        exifDetail = "Scan skipped for safety: ZIP bomb detected.";
+                        exifDetail = scanners.exiftool.details || "Scan skipped for safety: ZIP bomb detected.";
                         exifStatus = "Skipped";
                         exifClass = "skip";
                       } else if (scanners.exif_warnings_count > 0) {

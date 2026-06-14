@@ -24,6 +24,9 @@ else:
 UPLOAD_ROOT = _storage_base / "uploads"
 REMOTE_ROOT = _storage_base / "remote"
 
+ENABLE_CLAMAV = os.getenv("ENABLE_CLAMAV", "true").lower() == "true"
+ENABLE_SANDBOX = os.getenv("ENABLE_SANDBOX", "true").lower() == "true"
+
 
 def resolve_stored_path(record: dict[str, Any]) -> Path:
     stored_filename = str(record["stored_filename"])
@@ -204,19 +207,30 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
         return get_upload_record(upload_id)
 
     # 2. Run the actual analyzers (isolated where possible)
-    logger.info(f"Running ClamAV scan on: {stored_path.name}")
-    clamav_res = scan_file_with_clamav(stored_path)
+    if ENABLE_CLAMAV:
+        logger.info(f"Running ClamAV scan on: {stored_path.name}")
+        clamav_res = scan_file_with_clamav(stored_path)
+    else:
+        logger.info(f"ClamAV scan skipped (disabled via config) for: {stored_path.name}")
+        clamav_res = {"verdict": "skipped", "details": "ClamAV is disabled in this environment."}
     
-    logger.info(f"Running YARA and ExifTool in isolated container for: {stored_path.name}")
-    from sandbox.sandbox_runner import run_isolated_scans
-    isolated_res = run_isolated_scans(upload_id, stored_path)
-    
-    yara_res = isolated_res.get("yara", {"verdict": "error", "details": f"Isolated scan failed: {isolated_res.get('error', 'Unknown error')}"})
-    exif_res = isolated_res.get("exiftool", {"status": "error", "details": f"Isolated scan failed: {isolated_res.get('error', 'Unknown error')}"})
-
-    logger.info(f"Running isolated Dynamic Sandbox on: {stored_path.name}")
-    from sandbox.sandbox_runner import run_in_sandbox
-    sandbox_res = run_in_sandbox(upload_id, stored_path, str(record["original_filename"]))
+    if ENABLE_SANDBOX:
+        logger.info(f"Running YARA and ExifTool in isolated container for: {stored_path.name}")
+        from sandbox.sandbox_runner import run_isolated_scans
+        isolated_res = run_isolated_scans(upload_id, stored_path)
+        yara_res = isolated_res.get("yara", {"verdict": "error", "details": f"Isolated scan failed: {isolated_res.get('error', 'Unknown error')}"})
+        exif_res = isolated_res.get("exiftool", {"status": "error", "details": f"Isolated scan failed: {isolated_res.get('error', 'Unknown error')}"})
+        
+        logger.info(f"Running isolated Dynamic Sandbox on: {stored_path.name}")
+        from sandbox.sandbox_runner import run_in_sandbox
+        sandbox_res = run_in_sandbox(upload_id, stored_path, str(record["original_filename"]))
+    else:
+        logger.info(f"Running YARA and ExifTool natively (Docker disabled) for: {stored_path.name}")
+        yara_res = scan_file_with_yara(stored_path)
+        exif_res = extract_metadata_with_exiftool(stored_path)
+        
+        logger.info(f"Dynamic Sandbox skipped (disabled via config) for: {stored_path.name}")
+        sandbox_res = {"verdict": "skipped", "reason": "Dynamic sandboxing is disabled in this environment.", "executed": False}
 
     static_analysis = {
         "clamav": clamav_res,

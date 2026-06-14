@@ -78,6 +78,9 @@ UPLOAD_ROOT = _storage_base / "uploads"
 REMOTE_ROOT = _storage_base / "remote"
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
+ENABLE_CLAMAV = os.getenv("ENABLE_CLAMAV", "true").lower() == "true"
+ENABLE_SANDBOX = os.getenv("ENABLE_SANDBOX", "true").lower() == "true"
+
 UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 REMOTE_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -465,7 +468,7 @@ def _analyze_and_store_file(
     )
 
     # Run Static Anti-Malware Analyzers
-    clamav_res = {"verdict": "pending", "details": "Scan is pending."}
+    clamav_res = {"verdict": "pending", "details": "Scan is pending."} if ENABLE_CLAMAV else {"verdict": "skipped", "details": "ClamAV is disabled in this environment."}
     yara_res = {"verdict": "pending", "details": "Scan is pending."}
     exif_res = {"status": "pending", "details": "Scan is pending."}
 
