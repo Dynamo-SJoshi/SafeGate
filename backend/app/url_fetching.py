@@ -4,6 +4,7 @@ import re
 import tempfile
 import urllib.error
 import urllib.request
+import os
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from typing import Callable
@@ -16,6 +17,15 @@ MAX_REMOTE_BYTES = 50 * 1024 * 1024
 MAX_LANDING_PAGE_BYTES = 2 * 1024 * 1024
 MAX_REDIRECTS = 3
 REMOTE_TIMEOUT_SECONDS = 15
+
+if os.path.exists("/app/storage"):
+    _storage_base = Path("/app/storage")
+elif os.path.exists("./storage"):
+    _storage_base = Path("./storage")
+else:
+    _storage_base = Path(tempfile.gettempdir()) / "safegate"
+
+REMOTE_ROOT = _storage_base / "remote"
 
 
 @dataclass(slots=True)
@@ -114,7 +124,7 @@ def fetch_remote_source(
     on_progress: Callable[[int, int], None] | None = None,
 ) -> RemoteFetchResult:
     normalized_url = validate_and_normalize_url(source_url)
-    destination_root = Path(tempfile.gettempdir()) / "safegate" / "remote"
+    destination_root = REMOTE_ROOT
     destination_root.mkdir(parents=True, exist_ok=True)
     destination_path = destination_root / f"{upload_id}.bin"
 
