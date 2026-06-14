@@ -22,6 +22,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all code (backend, workers, analyzers, etc.)
 COPY . .
 
+# Set PYTHONPATH so that both backend and workers resolve imports correctly
+ENV PYTHONPATH=/app:/app/backend
+
 # Expose backend port
 EXPOSE 8000
 
