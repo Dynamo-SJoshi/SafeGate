@@ -108,6 +108,15 @@ class GeminiChatRequest(BaseModel):
     history: list[GeminiChatMessage] = Field(default_factory=list)
 
 
+@app.get("/")
+def read_root():
+    return {
+        "status": "online",
+        "service": "safegate-api",
+        "docs": "/docs"
+    }
+
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "safegate-api"}
