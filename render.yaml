@@ -5,13 +5,13 @@ services:
     plan: free
     ipAllowList: [] # Only allow internal network access
 
-  # 2. FastAPI Backend + RQ Worker (combined into a single service)
+  # 2. FastAPI Backend + RQ Worker (combined into a single Docker service)
   - type: web
     name: safegate-backend
     plan: free
-    runtime: python
-    buildCommand: pip install -r backend/requirements.txt
-    startCommand: python run_services.py
+    runtime: docker
+    dockerContext: .
+    dockerfilePath: Dockerfile.render
     envVars:
       - key: REDIS_URL
         fromService:
@@ -40,3 +40,5 @@ services:
     envVars:
       - key: BACKEND_URL
         value: http://safegate-backend:8000
+      - key: NODE_VERSION
+        value: "20"

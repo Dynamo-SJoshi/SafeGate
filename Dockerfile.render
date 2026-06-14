@@ -1,0 +1,29 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install system build tools, PDF rendering libraries, and scanning engines
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libimage-exiftool-perl \
+    yara \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf-2.0-0 \
+    shared-mime-info \
+    libcairo2 \
+    libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install python packages
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy all code (backend, workers, analyzers, etc.)
+COPY . .
+
+# Expose backend port
+EXPOSE 8000
+
+# Run both backend and worker concurrently using our runner script
+CMD ["python", "run_services.py"]
