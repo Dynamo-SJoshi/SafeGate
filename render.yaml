@@ -1,0 +1,44 @@
+services:
+  # 1. Redis instance for RQ scanning queue
+  - type: redis
+    name: safegate-redis
+    plan: free
+    ipAllowList: [] # Only allow internal network access
+
+  # 2. FastAPI Backend + RQ Worker (combined into a single service)
+  - type: web
+    name: safegate-backend
+    plan: free
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: python run_services.py
+    envVars:
+      - key: REDIS_URL
+        fromRedis: safegate-redis
+        type: connectionString
+      - key: ENABLE_CLAMAV
+        value: "false"
+      - key: ENABLE_SANDBOX
+        value: "false"
+      - key: DATABASE_URL
+        sync: true # User will copy their Supabase URL here
+      - key: GEMINI_API_KEY
+        sync: true # User will paste their Gemini API key here
+      - key: PUBLIC_BACKEND_URL
+        fromService:
+          name: safegate-backend
+          type: host
+
+  # 3. Next.js React Frontend
+  - type: web
+    name: safegate-frontend
+    plan: free
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: BACKEND_URL
+        fromService:
+          name: safegate-backend
+          type: host
