@@ -680,6 +680,28 @@ function ZipExplorer({ items, uploadId }) {
       );
     }
 
+    if (preview?.preview_kind === "html-screenshot" && preview.preview_url) {
+      return (
+        <div className="previewStructured">
+          <h4>Rendered Sandbox Preview</h4>
+          <p style={{ color: "#94a3b8", fontSize: "0.875rem", marginBottom: "1rem" }}>
+            This screenshot shows a secure, headless browser rendering of the HTML page inside our sandbox container.
+          </p>
+          <img 
+            className="previewMedia" 
+            src={preview.preview_url} 
+            alt="HTML Sandbox Screenshot Preview" 
+            style={{ 
+              border: "1px solid #334155", 
+              borderRadius: "0.5rem", 
+              maxWidth: "100%", 
+              boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)" 
+            }} 
+          />
+        </div>
+      );
+    }
+
     if (preview?.preview_kind === "archive-listing") {
       return (
         <div className="previewStructured">

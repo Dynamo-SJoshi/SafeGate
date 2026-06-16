@@ -261,13 +261,36 @@ def _download_landing_page(
     if size_bytes == 0:
         raise ValueError("Remote landing page was empty.")
 
+    # 1. Static HTML link extraction
     extractor = DownloadLinkExtractor(base_url=normalized_url)
     try:
         extractor.feed(page_bytes.decode("utf-8", errors="ignore"))
     except Exception:
         pass
 
-    candidate_details = _rank_candidate_urls(extractor.candidates, normalized_url)
+    candidates = list(extractor.candidates)
+
+    # 2. Dynamic Playwright sandbox link extraction (if sandbox is enabled)
+    ENABLE_SANDBOX = os.getenv("ENABLE_SANDBOX", "true").lower() == "true"
+    if ENABLE_SANDBOX:
+        try:
+            from sandbox.sandbox_runner import run_in_sandbox
+            # Run the downloaded landing page HTML in the Playwright sandbox
+            # We pass "landing_page.html" to trigger the HTML sandbox configurations
+            sandbox_res = run_in_sandbox(upload_id, destination_path, "landing_page.html")
+            if sandbox_res.get("executed"):
+                dyn_links = sandbox_res.get("extracted_links", [])
+                for link in dyn_links:
+                    href = link.get("href")
+                    if href:
+                        resolved = urljoin(normalized_url, href.strip())
+                        if resolved not in candidates:
+                            candidates.append(resolved)
+        except Exception:
+            # Fallback gracefully to static links if sandbox fails
+            pass
+
+    candidate_details = _rank_candidate_urls(candidates, normalized_url)
     candidate_urls = [candidate.url for candidate in candidate_details]
     notes = ["landing-page-detected"]
     if candidate_urls:

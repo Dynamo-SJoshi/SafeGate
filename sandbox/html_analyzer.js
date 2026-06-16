@@ -75,9 +75,31 @@ async function main() {
         alerts.push("Obfuscated JavaScript Code: Page contains scripting evasion/obfuscation tags (eval, unescape, atob).");
         findings.has_obfuscation = true;
       }
+      // Extract link candidates
+      const extractedLinks = [];
+      document.querySelectorAll('a').forEach(a => {
+        const href = a.getAttribute('href');
+        if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+          extractedLinks.push({
+            text: (a.textContent || '').trim().substring(0, 100),
+            href: href
+          });
+        }
+      });
+      findings.extracted_links = extractedLinks;
       
       return { alerts, findings };
     });
+    
+    // Take a screenshot of the rendered HTML
+    const screenshotPath = process.argv[3] || '/sandbox/screenshot.png';
+    try {
+      await page.screenshot({ path: screenshotPath, fullPage: true, timeout: 5000 });
+    } catch (ssErr) {
+      try {
+        await page.screenshot({ path: screenshotPath, timeout: 3000 });
+      } catch (e) {}
+    }
     
     console.log(JSON.stringify({
       success: true,

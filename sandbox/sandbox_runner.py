@@ -213,6 +213,9 @@ def run_in_sandbox(upload_id: str, stored_path: Path, filename: str) -> dict[str
     sandbox_dir = CONTAINER_STORAGE_ROOT / "sandbox_uploads"
     sandbox_dir.mkdir(parents=True, exist_ok=True)
     
+    previews_dir = CONTAINER_STORAGE_ROOT / "previews"
+    previews_dir.mkdir(parents=True, exist_ok=True)
+    
     dest_path = sandbox_dir / f"{upload_id}{ext}"
     shutil.copy2(stored_path, dest_path)
     
@@ -261,11 +264,13 @@ def run_in_sandbox(upload_id: str, stored_path: Path, filename: str) -> dict[str
         binds = [f"{host_target_path}:/sandbox/target.bin:ro"]
     elif ext == ".html":
         image = "safegate-playwright:latest"
-        cmd = ["node", "/sandbox/html_analyzer.js", "/sandbox/target.html"]
+        cmd = ["node", "/sandbox/html_analyzer.js", "/sandbox/target.html", f"/sandbox/previews/{upload_id}.png"]
         host_analyzer_path = "c:\\Users\\DELL\\Downloads\\SafeGate\\sandbox\\html_analyzer.js"
+        host_previews_dir = f"{HOST_STORAGE_ROOT}\\previews"
         binds = [
             f"{host_target_path}:/sandbox/target.html:ro",
-            f"{host_analyzer_path}:/sandbox/html_analyzer.js:ro"
+            f"{host_analyzer_path}:/sandbox/html_analyzer.js:ro",
+            f"{host_previews_dir}:/sandbox/previews"
         ]
         tmpfs = {"/tmp": "", "/root": ""}
         
@@ -313,6 +318,7 @@ def run_in_sandbox(upload_id: str, stored_path: Path, filename: str) -> dict[str
         # Parse output for alerts
         alerts = []
         
+        extracted_links = []
         if ext == ".html":
             try:
                 # Look for JSON output line in logs
@@ -326,6 +332,7 @@ def run_in_sandbox(upload_id: str, stored_path: Path, filename: str) -> dict[str
                     import json
                     analysis_result = json.loads(json_line)
                     alerts.extend(analysis_result.get("behavior_alerts", []))
+                    extracted_links = analysis_result.get("findings", {}).get("extracted_links", [])
             except Exception as e:
                 logger.error(f"Failed to parse Playwright JSON output: {e}")
         else:
@@ -363,6 +370,7 @@ def run_in_sandbox(upload_id: str, stored_path: Path, filename: str) -> dict[str
             "behavior_alerts": alerts,
             "signatures": alerts,
             "verdict": verdict,
+            "extracted_links": extracted_links,
             "details": f"Executed target inside {image} container. Verdict: {verdict.upper()}."
         }
     finally:

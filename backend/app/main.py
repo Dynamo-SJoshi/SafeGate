@@ -267,6 +267,22 @@ def preview_upload(payload: PreviewRequest, request: Request):
     if not stored_path.exists():
         raise HTTPException(status_code=404, detail="Stored file not found.")
 
+    # Check if a dynamic sandbox screenshot preview exists
+    screenshot_path = _storage_base / "previews" / f"{payload.upload_id}.png"
+    if screenshot_path.exists():
+        import os
+        public_url = os.environ.get("PUBLIC_BACKEND_URL") or os.environ.get("RENDER_EXTERNAL_URL")
+        if public_url:
+            screenshot_url = f"{public_url.rstrip('/')}/preview/{payload.upload_id}/screenshot"
+        else:
+            screenshot_url = str(request.url_for("preview_screenshot", upload_id=payload.upload_id))
+            
+        return {
+            "preview_kind": "html-screenshot",
+            "preview_url": screenshot_url,
+            "has_screenshot": True
+        }
+
     preview = build_preview(
         upload_id=str(record["upload_id"]),
         stored_path=stored_path,
@@ -282,6 +298,19 @@ def preview_upload(payload: PreviewRequest, request: Request):
         else:
             preview.preview_url = str(request.url_for("preview_file", upload_id=str(record["upload_id"])))
     return preview.to_dict()
+
+
+@app.get("/preview/{upload_id}/screenshot", name="preview_screenshot")
+def preview_screenshot(upload_id: str):
+    screenshot_path = _storage_base / "previews" / f"{upload_id}.png"
+    if not screenshot_path.exists():
+        raise HTTPException(status_code=404, detail="Screenshot preview not found.")
+        
+    return FileResponse(
+        path=screenshot_path,
+        media_type="image/png",
+        filename=f"SafeGate_Screenshot_{upload_id}.png"
+    )
 
 
 @app.get("/preview/{upload_id}/file", name="preview_file")
