@@ -363,14 +363,23 @@ def run_in_sandbox(upload_id: str, stored_path: Path, filename: str) -> dict[str
         if exit_code != 0 and not alerts and ext not in (".exe", ".msi"):
             verdict = "suspicious"  # Unexpected execution failure
             
+        # Sanitize null bytes (\x00 / \u0000) that PostgreSQL JSON/JSONB rejects
+        clean_logs = logs.replace("\x00", "").replace("\u0000", "") if isinstance(logs, str) else ""
+        clean_alerts = [a.replace("\x00", "").replace("\u0000", "") for a in alerts]
+        clean_extracted_links = []
+        for link in extracted_links:
+            href = link.get("href", "").replace("\x00", "").replace("\u0000", "")
+            text = link.get("text", "").replace("\x00", "").replace("\u0000", "")
+            clean_extracted_links.append({"href": href, "text": text})
+
         return {
             "executed": True,
             "exit_code": exit_code,
-            "logs": logs,
-            "behavior_alerts": alerts,
-            "signatures": alerts,
+            "logs": clean_logs,
+            "behavior_alerts": clean_alerts,
+            "signatures": clean_alerts,
             "verdict": verdict,
-            "extracted_links": extracted_links,
+            "extracted_links": clean_extracted_links,
             "details": f"Executed target inside {image} container. Verdict: {verdict.upper()}."
         }
     finally:
