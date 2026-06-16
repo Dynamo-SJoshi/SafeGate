@@ -375,6 +375,29 @@ Multi-Language Script Dynamic Sandboxing and Extension Evasion Protection:
 - Implemented content-based format detection (`detect_script_type_from_content`) that inspects headers, shebangs, HTML blocks, and script signature keywords to verify actual file formats.
 - Overrides claimed extensions with the actual detected scripting extensions, ensuring renamed script payloads (such as a PowerShell script spoofed with a `.pdf` extension) are correctly caught and sandboxed instead of bypassed.
 - Added a full CLI verification test suite to local tests.
+2026-06-17 03:52:00 +05:30
+--------------------------
 
+YARA Syntax Fix and Container Recoupling:
+- Resolved YARA rule compilation error where `$colorspace_obf` was declared in `rules.yar` but unreferenced in the condition, causing all static scans to error out.
+- Restarted backend and worker containers to enforce hot-loading of local file updates inside Docker.
 
+2026-06-17 03:56:00 +05:30
+--------------------------
 
+PowerShell Sandbox Memory Cap Upgrade:
+- Increased the memory limit for PowerShell (`.ps1`) containers to 268,435,456 bytes (256 MB) to prevent .NET CoreCLR OOM (`System.OutOfMemoryException`) crashes during runtime assembly loading and tokenizer parsing.
+
+2026-06-17 04:00:00 +05:30
+--------------------------
+
+Database Log Null-Byte Sanitization:
+- Sanitized `logs`, `behavior_alerts`, and `extracted_links` returned from sandboxed executions to remove raw null bytes (`\x00` / `\u0000`).
+- Prevents database insert transaction errors (`psycopg.errors.UntranslatableCharacter`) inside PostgreSQL JSONB fields, which don't support null bytes in unicode escapes.
+
+2026-06-17 04:02:00 +05:30
+--------------------------
+
+Binary vs. Text Heuristics for Script Override Protection:
+- Added heuristic filtering to the content detector: files containing null bytes (`0x00`) or possessing a high density (>15%) of non-printable control characters are recognized as binary (`.bin` or `.pdf`).
+- Bypasses text-based script keyword overrides on binary uploads, preventing true PDFs and archives from being misclassified as PowerShell scripts and executed inside the container.
