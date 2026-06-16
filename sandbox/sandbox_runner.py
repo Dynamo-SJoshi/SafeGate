@@ -280,7 +280,7 @@ def run_in_sandbox(upload_id: str, stored_path: Path, filename: str) -> dict[str
         "HostConfig": {
             "NetworkMode": "none",
             "ReadonlyRootfs": True,
-            "Memory": 268435456 if ext in (".exe", ".msi", ".html") else 134217728,  # 256 MB for Wine/Playwright, 128 MB for scripts
+            "Memory": 268435456 if ext in (".exe", ".msi", ".html", ".ps1") else 134217728,  # 256 MB for Wine/Playwright/PowerShell, 128 MB for scripts
             "NanoCpus": 500000000,  # 0.5 CPU limit
             "Binds": binds
         }
