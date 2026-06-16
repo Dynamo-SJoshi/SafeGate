@@ -365,5 +365,16 @@ Timezone-Aware PDF Security Reports:
 - Extracted client browser timezones dynamically (`Intl.DateTimeFormat().resolvedOptions().timeZone`) and passed them through Next.js and FastAPI API routes to the backend.
 - Handled timezone conversions inside `generate_pdf_report` using Python `zoneinfo` to format report generation times to match the user's local timezone instead of UTC.
 
+2026-06-17 02:45:00 +05:30
+--------------------------
+
+Multi-Language Script Dynamic Sandboxing and Extension Evasion Protection:
+- Expanded the local Docker sandboxing engine to dynamically configuration-bind and run PowerShell (`.ps1` via `powershell:lts-alpine`), JavaScript/Node.js (`.js` via `node:18-alpine`), Bash (`.sh` via `alpine:latest`), and phishing HTML pages (`.html` via a custom `safegate-playwright` image) in addition to Python scripts.
+- Implemented `tmpfs` writable mounts inside resource-constrained, network-less, read-only container volumes to support CoreCLR and Playwright profile initialization.
+- Added a custom `safegate-playwright` Docker build setup using Playwright `1.40` matching pre-packaged container browser versions to headlessly analyze HTML templates for credential-harvesting input forms, suspicious external post-actions, auto-redirections, and code obfuscations.
+- Implemented content-based format detection (`detect_script_type_from_content`) that inspects headers, shebangs, HTML blocks, and script signature keywords to verify actual file formats.
+- Overrides claimed extensions with the actual detected scripting extensions, ensuring renamed script payloads (such as a PowerShell script spoofed with a `.pdf` extension) are correctly caught and sandboxed instead of bypassed.
+- Added a full CLI verification test suite to local tests.
+
 
 
