@@ -4,6 +4,7 @@ import socket
 import json
 import logging
 import shutil
+import re
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,96 @@ logger.setLevel(logging.INFO)
 
 HOST_STORAGE_ROOT = "c:\\Users\\DELL\\Downloads\\SafeGate\\storage"
 CONTAINER_STORAGE_ROOT = Path("/app/storage")
+
+
+def detect_script_type_from_content(stored_path: Path) -> str | None:
+    """Inspects file contents to determine if it matches a supported sandbox file type, overriding extensions."""
+    try:
+        with open(stored_path, "rb") as f:
+            header = f.read(4096)
+    except Exception:
+        return None
+
+    # Binary checks
+    if header.startswith(b"MZ"):
+        return ".exe"
+    if header.startswith(b"\x7fELF"):
+        return ".bin"
+    if header.startswith(b"%PDF-"):
+        return ".pdf"
+
+    # Text checks
+    try:
+        content = header.decode("utf-8", errors="ignore").strip()
+    except Exception:
+        return None
+
+    # Shebang check
+    lines = content.splitlines()
+    if not lines:
+        return None
+        
+    first_line = lines[0].strip()
+    if first_line.startswith("#!"):
+        first_line_lower = first_line.lower()
+        if "python" in first_line_lower:
+            return ".py"
+        if "sh" in first_line_lower or "bash" in first_line_lower:
+            return ".sh"
+        if "pwsh" in first_line_lower or "powershell" in first_line_lower:
+            return ".ps1"
+
+    content_lower = content.lower()
+    
+    # Check for HTML
+    if content_lower.startswith("<!doctype html") or "<html" in content_lower:
+        return ".html"
+
+    # Let's check for strong indicators first (threshold of 1)
+    ps_strong = [
+        "write-output", "new-item", "get-process", "start-process", 
+        "invoke-expression", "invoke-webrequest", "invoke-restmethod",
+        "set-executionpolicy", "write-host", "out-file", "get-content", 
+        "test-path", "new-object", "set-content", "$erroractionpreference"
+    ]
+    js_strong = [
+        "console.log", "require(", "module.exports", "exports.",
+        "process.argv", "fs.write", "fs.read", "express()"
+    ]
+    py_strong = [
+        "import os", "import sys", "import time", "if __name__ =="
+    ]
+    
+    if any(ind in content_lower for ind in ps_strong):
+        return ".ps1"
+    if any(ind in content_lower for ind in js_strong):
+        return ".js"
+    if any(ind in content_lower for ind in py_strong):
+        return ".py"
+
+    # Fallback to scoring for weaker indicators (threshold of 2)
+    ps_weak = ["$"]
+    js_weak = ["const ", "let ", "var ", "function"]
+    py_weak = ["def ", "class ", "print("]
+    sh_weak = ["echo ", "chmod ", "chown ", "exit "]
+
+    ps_score = sum(2 for ind in ps_weak if ind in content_lower)
+    js_score = sum(1 for ind in js_weak if ind in content_lower)
+    py_score = sum(1 for ind in py_weak if ind in content_lower)
+    sh_score = sum(1 for ind in sh_weak if ind in content_lower)
+
+    scores = {
+        ".ps1": ps_score,
+        ".js": js_score,
+        ".py": py_score,
+        ".sh": sh_score
+    }
+    
+    best_ext = max(scores, key=scores.get)
+    if scores[best_ext] >= 2:
+        return best_ext
+
+    return None
 
 
 def decode_chunked_body(body: bytes) -> bytes:
@@ -101,40 +192,99 @@ def clean_docker_logs(raw_body: bytes) -> str:
 
 
 def run_in_sandbox(upload_id: str, stored_path: Path, filename: str) -> dict[str, Any]:
-    """Runs a Python script in an isolated read-only Docker container."""
+    """Runs a script, binary, or HTML file in an isolated read-only Docker container based on its extension or detected content type."""
     ext = Path(filename).suffix.lower()
     
-    # We only run python scripts for now in the dynamic sandbox
-    if ext != ".py":
+    # Check if the content suggests a different supported extension (content-based override for security evasion protection)
+    detected_ext = detect_script_type_from_content(stored_path)
+    supported_extensions = {".py", ".ps1", ".sh", ".js", ".exe", ".msi", ".html", ".bin"}
+    if detected_ext in supported_extensions:
+        if detected_ext != ext:
+            logger.info(f"Extension override: file claimed to be {ext} but content suggests {detected_ext}")
+            ext = detected_ext
+            
+    if ext not in supported_extensions:
         return {
             "executed": False,
-            "reason": "Dynamic sandboxing is only supported for Python (.py) scripts in the MVP.",
+            "reason": f"Dynamic sandboxing is not supported for {ext} files.",
             "verdict": "skipped"
         }
-        
+            
     sandbox_dir = CONTAINER_STORAGE_ROOT / "sandbox_uploads"
     sandbox_dir.mkdir(parents=True, exist_ok=True)
     
-    dest_path = sandbox_dir / f"{upload_id}.py"
+    dest_path = sandbox_dir / f"{upload_id}{ext}"
     shutil.copy2(stored_path, dest_path)
     
-    host_target_path = f"{HOST_STORAGE_ROOT}\\sandbox_uploads\\{upload_id}.py"
+    host_target_path = f"{HOST_STORAGE_ROOT}\\sandbox_uploads\\{upload_id}{ext}"
     
-    # Define Docker container configuration
+    # Define configuration dynamically based on extension
+    image = "python:3.10-slim"
+    cmd = ["python", "/sandbox/target.py"]
+    binds = [f"{host_target_path}:/sandbox/target.py:ro"]
+    tmpfs = {}
+    
+    if ext == ".py":
+        image = "python:3.10-slim"
+        cmd = ["python", "/sandbox/target.py"]
+        binds = [f"{host_target_path}:/sandbox/target.py:ro"]
+    elif ext == ".ps1":
+        image = "mcr.microsoft.com/powershell:lts-alpine"
+        cmd = ["pwsh", "-File", "/sandbox/target.ps1"]
+        binds = [f"{host_target_path}:/sandbox/target.ps1:ro"]
+        # PowerShell needs writable /tmp and /root to initialize CoreCLR in read-only mode
+        tmpfs = {"/tmp": "", "/root": ""}
+    elif ext == ".sh":
+        image = "alpine:latest"
+        cmd = ["sh", "/sandbox/target.sh"]
+        binds = [f"{host_target_path}:/sandbox/target.sh:ro"]
+    elif ext == ".js":
+        image = "node:18-alpine"
+        cmd = ["node", "/sandbox/target.js"]
+        binds = [f"{host_target_path}:/sandbox/target.js:ro"]
+    elif ext in (".exe", ".msi"):
+        image = "scottyhardy/wine-dev:latest"
+        if ext == ".exe":
+            cmd = ["wine", "/sandbox/target.exe"]
+        else:
+            cmd = ["wine", "msiexec", "/i", "/sandbox/target.msi", "/qn"]
+        binds = [f"{host_target_path}:/sandbox/target{ext}:ro"]
+        # Wine needs a writable prefix even in read-only container
+        tmpfs = {"/root/.wine": ""}
+    elif ext == ".bin":
+        image = "ubuntu:latest"
+        try:
+            dest_path.chmod(0o755)
+        except Exception as e:
+            logger.warning(f"Failed to chmod binary: {e}")
+        cmd = ["/sandbox/target.bin"]
+        binds = [f"{host_target_path}:/sandbox/target.bin:ro"]
+    elif ext == ".html":
+        image = "safegate-playwright:latest"
+        cmd = ["node", "/sandbox/html_analyzer.js", "/sandbox/target.html"]
+        host_analyzer_path = "c:\\Users\\DELL\\Downloads\\SafeGate\\sandbox\\html_analyzer.js"
+        binds = [
+            f"{host_target_path}:/sandbox/target.html:ro",
+            f"{host_analyzer_path}:/sandbox/html_analyzer.js:ro"
+        ]
+        tmpfs = {"/tmp": "", "/root": ""}
+        
     container_config = {
-        "Image": "python:3.10-slim",
-        "Cmd": ["python", "/sandbox/target.py"],
+        "Image": image,
+        "Cmd": cmd,
         "HostConfig": {
             "NetworkMode": "none",
             "ReadonlyRootfs": True,
-            "Memory": 134217728,  # 128 MB RAM limit
+            "Memory": 268435456 if ext in (".exe", ".msi", ".html") else 134217728,  # 256 MB for Wine/Playwright, 128 MB for scripts
             "NanoCpus": 500000000,  # 0.5 CPU limit
-            "Binds": [
-                f"{host_target_path}:/sandbox/target.py:ro"
-            ]
+            "Binds": binds
         }
     }
-    
+    if tmpfs:
+        container_config["HostConfig"]["Tmpfs"] = tmpfs
+    if ext == ".html":
+        container_config["Env"] = ["NODE_PATH=/usr/lib/node_modules"]
+        
     logger.info(f"Creating sandbox container for {upload_id}")
     create_res = query_docker_socket("/containers/create", "POST", container_config)
     container_id = create_res.get("Id")
@@ -150,7 +300,7 @@ def run_in_sandbox(upload_id: str, stored_path: Path, filename: str) -> dict[str
         logger.info(f"Starting sandbox container: {container_id[:12]}")
         query_docker_socket(f"/containers/{container_id}/start", "POST")
         
-        # Wait for completion (with 5 seconds timeout)
+        # Wait for completion (with 10 seconds timeout for execution)
         logger.info(f"Waiting for sandbox container to finish...")
         wait_res = query_docker_socket(f"/containers/{container_id}/wait", "POST")
         exit_code = wait_res.get("StatusCode", -1)
@@ -162,14 +312,48 @@ def run_in_sandbox(upload_id: str, stored_path: Path, filename: str) -> dict[str
         
         # Parse output for alerts
         alerts = []
-        logs_lower = logs.lower()
-        if "read-only file system" in logs_lower:
-            alerts.append("File System Write Attempt: Script attempted to write to the read-only filesystem.")
-        if "socket.gaierror" in logs_lower or "urllib.error" in logs_lower or "connection" in logs_lower:
-            alerts.append("Network Connection Attempt: Script attempted to make a remote network request.")
+        
+        if ext == ".html":
+            try:
+                # Look for JSON output line in logs
+                json_line = None
+                for line in logs.splitlines():
+                    line_str = line.strip()
+                    if line_str.startswith("{") and line_str.endswith("}"):
+                        json_line = line_str
+                        break
+                if json_line:
+                    import json
+                    analysis_result = json.loads(json_line)
+                    alerts.extend(analysis_result.get("behavior_alerts", []))
+            except Exception as e:
+                logger.error(f"Failed to parse Playwright JSON output: {e}")
+        else:
+            logs_lower = logs.lower()
             
+            write_keywords = [
+                "read-only file system", 
+                "permission denied", 
+                "access to the path is denied", 
+                "unauthorizedaccess"
+            ]
+            if any(k in logs_lower for k in write_keywords):
+                alerts.append("File System Write Attempt: Program/script attempted to write to the read-only filesystem.")
+                
+            net_keywords = [
+                "socket.gaierror", 
+                "urllib.error", 
+                "connection", 
+                "enotfound", 
+                "eai_again", 
+                "network is unreachable", 
+                "temporary failure in name resolution"
+            ]
+            if any(k in logs_lower for k in net_keywords):
+                alerts.append("Network Connection Attempt: Program/script attempted to resolve hosts or connect to network sockets.")
+
         verdict = "malicious" if alerts else "clean"
-        if exit_code != 0 and not alerts:
+        if exit_code != 0 and not alerts and ext not in (".exe", ".msi"):
             verdict = "suspicious"  # Unexpected execution failure
             
         return {
@@ -177,8 +361,9 @@ def run_in_sandbox(upload_id: str, stored_path: Path, filename: str) -> dict[str
             "exit_code": exit_code,
             "logs": logs,
             "behavior_alerts": alerts,
+            "signatures": alerts,
             "verdict": verdict,
-            "details": f"Executed script inside python:3.10-slim container. Verdict: {verdict.upper()}."
+            "details": f"Executed target inside {image} container. Verdict: {verdict.upper()}."
         }
     finally:
         # Delete container

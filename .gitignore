@@ -20,4 +20,6 @@ build/
 Thumbs.db
 .idea/
 .vscode/
-
+# SafeGate Local Storage and Scratch files
+storage/
+scratch/
