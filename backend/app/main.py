@@ -572,7 +572,7 @@ def get_report_json(upload_id: str):
 
 
 @app.get("/report/{upload_id}/pdf")
-def get_report_pdf(upload_id: str):
+def get_report_pdf(upload_id: str, tz: str = "UTC"):
     record = get_upload_record(upload_id)
     if not record:
         raise HTTPException(status_code=404, detail="Upload record not found.")
@@ -581,7 +581,7 @@ def get_report_pdf(upload_id: str):
         raise HTTPException(status_code=400, detail="Scan analysis is still pending.")
         
     try:
-        pdf_bytes = generate_pdf_report(record)
+        pdf_bytes = generate_pdf_report(record, tz=tz)
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",

@@ -6,7 +6,7 @@ from typing import Any
 from datetime import datetime
 
 # Import WeasyPrint only inside functions to avoid startup dependencies issues if libraries are reloading
-def generate_pdf_report(record: dict[str, Any]) -> bytes:
+def generate_pdf_report(record: dict[str, Any], tz: str = "UTC") -> bytes:
     from weasyprint import HTML
 
     # Extract info
@@ -24,13 +24,25 @@ def generate_pdf_report(record: dict[str, Any]) -> bytes:
     else:
         size_str = f"{size_bytes / (1024 * 1024):.2f} MB"
 
-    # Format date
+    # Format date in target timezone
+    try:
+        from zoneinfo import ZoneInfo
+        from datetime import timezone
+        target_tz = ZoneInfo(tz)
+    except Exception:
+        from datetime import timezone
+        target_tz = timezone.utc
+
     if isinstance(created_at, datetime):
-        date_str = created_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        local_time = created_at.astimezone(target_tz)
+        date_str = local_time.strftime("%Y-%m-%d %H:%M:%S") + f" {tz}"
     elif created_at:
-        date_str = str(created_at)[:19]
+        date_str = str(created_at)[:19] + f" {tz}"
     else:
-        date_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        local_now = datetime.now(timezone.utc).astimezone(target_tz)
+        date_str = local_now.strftime("%Y-%m-%d %H:%M:%S") + f" {tz}"
 
     static_analysis = record.get("static_analysis") or {}
     clamav = static_analysis.get("clamav") or {}

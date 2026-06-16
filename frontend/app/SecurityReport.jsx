@@ -198,7 +198,7 @@ export default function SecurityReport({ uploadId, onClose }) {
           </div>
 
           <a 
-            href={`/api/report/${uploadId}/pdf`}
+            href={`/api/report/${uploadId}/pdf?tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`}
             download={`SafeGate_Report_${uploadId}.pdf`}
             className="ui-btn downloadReportBtn"
             style={{ textDecoration: "none" }}
@@ -475,7 +475,7 @@ export default function SecurityReport({ uploadId, onClose }) {
             // PDF Document Preview View
             <div className="reportPdfPreviewLayout">
               <iframe 
-                src={`/api/report/${uploadId}/pdf`}
+                src={`/api/report/${uploadId}/pdf?tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`}
                 width="100%" 
                 height="100%" 
                 className="reportPdfIframe"

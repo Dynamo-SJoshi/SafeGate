@@ -2,8 +2,11 @@ const BACKEND_URL = process.env.BACKEND_URL || "http://127.0.0.1:8000";
 
 export async function GET(request, { params }) {
   const { id } = await params;
+  const { searchParams } = new URL(request.url);
+  const tz = searchParams.get("tz") || "UTC";
+
   try {
-    const backendResponse = await fetch(`${BACKEND_URL}/report/${id}/pdf`, {
+    const backendResponse = await fetch(`${BACKEND_URL}/report/${id}/pdf?tz=${encodeURIComponent(tz)}`, {
       method: "GET",
       cache: "no-store",
     });

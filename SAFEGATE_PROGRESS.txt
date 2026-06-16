@@ -334,4 +334,36 @@ Security Sandbox Updates, Redis Queue Integration, ZIP Bomb Prevention, and Repo
 - Tokenized ExifTool and YARA scanner executions inside ephemeral, resource-constrained, network-less Docker containers to isolate database credentials and protect host resources.
 - Ensured consistent PDF and interactive dashboard status reporting for bypassed scans, rendering bypassed scanners as `Skipped` with a grey badge and showing a risk score of `100/100` for threat indices.
 
+2026-06-12 23:51:38 +05:30
+--------------------------
+
+Interactive ZIP Explorer and Shared Preview Storage:
+- Implemented an interactive ZIP explorer:
+  - Added recursive parsing of zip structures to expose directory tree layouts directly in the frontend.
+  - Enabled secure on-demand file previewing for individual files inside zip archives.
+- Mounted uploads and remote fetch directories on a shared container storage volume to resolve "file not found" preview errors in remote fetching configurations.
+
+2026-06-15 05:09:34 +05:30
+--------------------------
+
+Render Deployment, Feature Toggles, and Service Portability:
+- Integrated Render cloud deployment support:
+  - Added a blueprint configuration (`render.yaml`) orchestrating PostgreSQL, Redis, backend, and frontend.
+  - Added a multi-service runner (`run_services.py`) to launch and manage services concurrently.
+  - Handled public URL routing and Render free tier host restrictions with custom configurable `BACKEND_URL` environment variables.
+  - Configured custom Docker runtimes, PYTHONPATH modules, and pinned node environments.
+- Implemented core feature toggles (`ENABLE_CLAMAV` and `ENABLE_SANDBOX`):
+  - Allows running the SafeGate backend without active ClamAV and sandbox containers, falling back gracefully to static rules and metadata analysis.
+- Rethemed/escaped PostCSS SCSS interpolations to avoid deployment errors on keyframes.
+- Added a basic root route `/` handler returning API health metrics.
+
+2026-06-16 16:16:50 +05:30
+--------------------------
+
+Timezone-Aware PDF Security Reports:
+- Upgraded PDF security report generation to support timezone localization.
+- Extracted client browser timezones dynamically (`Intl.DateTimeFormat().resolvedOptions().timeZone`) and passed them through Next.js and FastAPI API routes to the backend.
+- Handled timezone conversions inside `generate_pdf_report` using Python `zoneinfo` to format report generation times to match the user's local timezone instead of UTC.
+
+
 
