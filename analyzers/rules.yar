@@ -73,7 +73,7 @@ rule suspicious_pdf_obfuscation {
         $obf_js2 = /\/J#53/
         $colorspace_obf = "/ColorSpace"
     condition:
-        $pdf_magic at 0 and ($launch or $uri or $obf_js1 or $obf_js2)
+        $pdf_magic at 0 and ($launch or $uri or $obf_js1 or $obf_js2 or $colorspace_obf)
 }
 
 rule office_macro_code_execution {
