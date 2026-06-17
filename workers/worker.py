@@ -248,7 +248,17 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
     elif yara_res.get("verdict") == "suspicious" or match_status == "mismatch" or sandbox_res.get("verdict") == "suspicious":
         analysis_state = "suspicious"
     else:
-        analysis_state = "clean"
+        # Check if it is a ZIP archive
+        detected_content_type = str(record["content_type"])
+        original_filename = str(record["original_filename"])
+        is_zip = (
+            detected_content_type == "application/zip" or
+            original_filename.lower().endswith(".zip")
+        )
+        if is_zip:
+            analysis_state = "unverified"
+        else:
+            analysis_state = "clean"
 
     # Save / Update the database record
     logger.info(f"Updating database for upload_id {upload_id} with state {analysis_state}")

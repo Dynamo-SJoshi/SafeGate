@@ -19,6 +19,9 @@ function renderStaticAnalysis(result) {
   if (state === "clean") {
     badgeColor = "var(--good)";
     badgeLabel = "Clean";
+  } else if (state === "unverified") {
+    badgeColor = "var(--muted)";
+    badgeLabel = "Unverified";
   } else if (state === "suspicious") {
     badgeColor = "var(--warn)";
     badgeLabel = "Suspicious";
@@ -205,6 +208,20 @@ export default function HomePage() {
   const [uploadDetailsOpen, setUploadDetailsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState(null);
+
+  const refreshUploadDetails = async (uploadId) => {
+    if (!uploadId) return;
+    try {
+      const response = await fetch(`/api/upload/${uploadId}`, { cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        setUploadResult((prev) => prev && prev.upload_id === uploadId ? data : prev);
+        setUrlResult((prev) => prev && prev.upload_id === uploadId ? data : prev);
+      }
+    } catch (err) {
+      console.error("Failed to refresh upload details:", err);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -547,6 +564,9 @@ function renderZipItemScanResults(scanResults) {
   if (state === "clean") {
     badgeColor = "var(--good)";
     badgeLabel = "Clean";
+  } else if (state === "unverified") {
+    badgeColor = "var(--muted)";
+    badgeLabel = "Unverified";
   } else if (state === "suspicious") {
     badgeColor = "var(--warn)";
     badgeLabel = "Suspicious";
@@ -675,7 +695,7 @@ function renderZipItemScanResults(scanResults) {
   );
 }
 
-function ZipExplorer({ items, uploadId }) {
+function ZipExplorer({ items, uploadId, onParentRefresh }) {
   const [tree, setTree] = useState(null);
   const [expandedDirs, setExpandedDirs] = useState({});
   const [selectedFile, setSelectedFile] = useState(null);
@@ -709,6 +729,11 @@ function ZipExplorer({ items, uploadId }) {
         setFileError(data.error || "Failed to load preview.");
       } else {
         setFileContent(data);
+        if (data.scan_results && (data.scan_results.verdict === "malicious" || data.scan_results.verdict === "suspicious")) {
+          if (onParentRefresh) {
+            onParentRefresh();
+          }
+        }
       }
     } catch (err) {
       setFileError("Network error: failed to fetch file content.");
@@ -818,7 +843,7 @@ function ZipExplorer({ items, uploadId }) {
   );
 }
 
-  function renderPreviewPanel(preview, previewState) {
+  function renderPreviewPanel(preview, previewState, onParentRefresh) {
     if (previewState === "loading") {
       return <p>Generating safe preview...</p>;
     }
@@ -878,7 +903,7 @@ function ZipExplorer({ items, uploadId }) {
         <div className="previewStructured">
           <h4>{preview?.preview_title ?? "Safe preview"}</h4>
           <p>{preview?.summary ?? "Preview not loaded yet."}</p>
-          <ZipExplorer items={preview.items} uploadId={preview.upload_id} />
+          <ZipExplorer items={preview.items} uploadId={preview.upload_id} onParentRefresh={onParentRefresh} />
         </div>
       );
     }
@@ -1168,7 +1193,7 @@ function ZipExplorer({ items, uploadId }) {
                   </a>
                 </p>
               ) : null}
-              {renderPreviewPanel(urlPreviewResult, urlPreviewState)}
+              {renderPreviewPanel(urlPreviewResult, urlPreviewState, () => refreshUploadDetails(urlResult?.upload_id))}
             </div>
           ) : null}
         </form>
@@ -1306,7 +1331,7 @@ function ZipExplorer({ items, uploadId }) {
                   </a>
                 </p>
               ) : null}
-              {renderPreviewPanel(uploadPreviewResult, uploadPreviewState)}
+              {renderPreviewPanel(uploadPreviewResult, uploadPreviewState, () => refreshUploadDetails(uploadResult?.upload_id))}
             </div>
           ) : null}
         </form>

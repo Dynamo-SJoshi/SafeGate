@@ -1709,6 +1709,7 @@ pre {
 
 .zipFileContent {
   flex: 1;
+  min-height: 150px;
   margin: 0;
   font-family: var(--font-mono, monospace);
   font-size: 0.85rem;

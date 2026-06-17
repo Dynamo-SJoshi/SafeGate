@@ -77,7 +77,13 @@ export default function SecurityReport({ uploadId, onClose }) {
   let verdictBorderColor = "rgba(16, 185, 129, 0.3)";
   let verdictTextHex = "#10b981";
 
-  if (verdict === "malicious") {
+  if (verdict === "unverified") {
+    verdictLabel = "Unverified Contents";
+    verdictColorClass = "unverified";
+    verdictBgColor = "rgba(100, 116, 139, 0.1)";
+    verdictBorderColor = "rgba(100, 116, 139, 0.3)";
+    verdictTextHex = "#64748b";
+  } else if (verdict === "malicious") {
     verdictLabel = "Threat Detected";
     verdictColorClass = "danger";
     verdictBgColor = "rgba(239, 68, 68, 0.1)";

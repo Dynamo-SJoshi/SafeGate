@@ -434,6 +434,47 @@ def preview_zip_file(upload_id: str, file_path: str):
             elif yara_res.get("verdict") == "suspicious" or sandbox_res.get("verdict") == "suspicious":
                 item_verdict = "suspicious"
 
+            # If the item verdict is worse than the current analysis_state, update the database record!
+            if item_verdict in ("malicious", "suspicious"):
+                current_state = record.get("analysis_state", "unverified")
+                if current_state != "malicious":  # If it's already malicious, we don't need to change anything
+                    new_state = "malicious" if item_verdict == "malicious" else "suspicious"
+                    if current_state != new_state:
+                        parent_static = dict(record.get("static_analysis") or {})
+                        
+                        # Add a zip_findings log so the report lists the threat
+                        if "zip_findings" not in parent_static:
+                            parent_static["zip_findings"] = []
+                        
+                        # Avoid duplicates
+                        existing_paths = [f.get("file_path") for f in parent_static["zip_findings"]]
+                        if norm_path not in existing_paths:
+                            parent_static["zip_findings"].append({
+                                "file_path": norm_path,
+                                "verdict": item_verdict,
+                                "alerts": clamav_res.get("details") or yara_res.get("details") or sandbox_res.get("behavior_alerts") or []
+                            })
+                        
+                        # Update the database
+                        save_upload_record(
+                            upload_id=upload_id,
+                            original_filename=str(record["original_filename"]),
+                            stored_filename=str(record["stored_filename"]),
+                            content_type=str(record["content_type"]),
+                            size_bytes=int(record["size_bytes"]),
+                            sha256=str(record["sha256"]),
+                            fingerprint=dict(record["fingerprint"]),
+                            analysis_state=new_state,
+                            source_url=record.get("source_url"),
+                            source_kind=str(record["source_kind"]),
+                            source_state=str(record["source_state"]),
+                            selected_candidate_url=record.get("selected_candidate_url"),
+                            candidate_urls=record.get("candidate_urls"),
+                            client_ip=record.get("client_ip"),
+                            static_analysis=parent_static,
+                            candidate_details=record.get("candidate_details"),
+                        )
+
             scan_results = {
                 "verdict": item_verdict,
                 "clamav": clamav_res,
