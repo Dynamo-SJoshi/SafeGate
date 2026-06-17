@@ -26,24 +26,25 @@ def detect_script_type_from_content(stored_path: Path) -> str | None:
     if not header:
         return None
 
+    # Magic bytes check
+    if header.startswith(b"MZ"):
+        return ".exe"
+    if header.startswith(b"\x7fELF"):
+        return ".bin"
+    if header.startswith(b"%PDF-"):
+        return ".pdf"
+    if header.startswith(b"PK\x03\x04") or header.startswith(b"PK\x05\x06"):
+        return ".zip"
+
     # Binary vs Text heuristic checks
     # 1. Plain text scripts (py, ps1, js, sh, html) never contain null bytes
     if b"\x00" in header:
-        if header.startswith(b"MZ"):
-            return ".exe"
-        if header.startswith(b"\x7fELF"):
-            return ".bin"
-        if header.startswith(b"%PDF-"):
-            return ".pdf"
         return ".bin"
 
     # 2. Heuristic: check density of non-printable/control characters
     printable_chars = set(b"\n\r\t") | set(range(32, 127))
     non_printable = sum(1 for byte in header if byte not in printable_chars)
     if (non_printable / len(header)) > 0.15:
-        # Over 15% non-printable characters implies binary/compiled payload
-        if header.startswith(b"%PDF-"):
-            return ".pdf"
         return ".bin"
 
     # Text checks
