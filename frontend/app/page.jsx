@@ -288,7 +288,7 @@ function TreeNode({ node, onSelectFile, selectedFile, expandedDirs, toggleDir })
       {node.size !== null && node.size !== undefined && (
         <span className="file-size">({(node.size / 1024).toFixed(1)} KB)</span>
       )}
-      <button className="view-btn">{isPreviewable ? "View" : "Inspect"}</button>
+      <button type="button" className="view-btn">{isPreviewable ? "View" : "Inspect"}</button>
     </div>
   );
 }
@@ -599,7 +599,7 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
   );
 }
 
-function renderPreviewPanel(preview, previewState, onParentRefresh) {
+function PreviewPanel({ preview, previewState, onParentRefresh }) {
   if (previewState === "loading") {
     return <p>Generating safe preview...</p>;
   }
@@ -968,7 +968,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <form className="uploadCard" onSubmit={handleAnalyzeUrl}>
+        <form className="uploadCard" onSubmit={handleAnalyzeUrl} key="url-form">
           <div className="statusHeader">
             <span className={`dot ${urlState === "done" ? "online" : urlState === "error" || urlState === "missing-url" ? "error" : "warn"}`} />
             <span>Link analysis: {urlState}</span>
@@ -1069,7 +1069,7 @@ export default function HomePage() {
             </div>
           ) : null}
           {urlResult?.source_state ? (
-            <div className="fingerprintSummary">
+            <div className="fingerprintSummary" key="url-source-summary">
               <h3>Source summary</h3>
               <p>
                 Source kind: <strong>{urlResult.source_kind}</strong>
@@ -1105,7 +1105,7 @@ export default function HomePage() {
             </div>
           ) : null}
           {urlResult?.candidate_details?.length ? (
-            <div className="fingerprintSummary">
+            <div className="fingerprintSummary" key="url-compare-candidates">
               <h3>Compare candidates</h3>
               <p>Inspect each candidate and compare scores, reasons, and analysis results.</p>
               <div className="candidateCompareTable">
@@ -1215,19 +1215,20 @@ export default function HomePage() {
                   </a>
                 </p>
               ) : null}
-              {renderPreviewPanel(urlPreviewResult, urlPreviewState, () => refreshUploadDetails(urlResult?.upload_id))}
+              <PreviewPanel preview={urlPreviewResult} previewState={urlPreviewState} onParentRefresh={() => refreshUploadDetails(urlResult?.upload_id)} />
             </div>
           ) : null}
         </form>
         {urlResult ? (
           <GeminiAssistant
+            key="url-gemini-assistant"
             title="Gemini explanation and chat"
             analysis={{ ...urlResult, preview: urlPreviewResult }}
             analysisKey={urlResult.upload_id || urlResult.error || urlResult.detail || "url-error"}
           />
         ) : null}
 
-        <form className="uploadCard fallbackCard" onSubmit={handleUpload}>
+        <form className="uploadCard fallbackCard" onSubmit={handleUpload} key="upload-form">
           <div className="statusHeader">
             <span className={`dot ${uploadState === "done" ? "online" : uploadState === "error" || uploadState === "missing-file" ? "error" : "warn"}`} />
             <span>Fallback upload: {uploadState}</span>
@@ -1358,12 +1359,13 @@ export default function HomePage() {
                   </a>
                 </p>
               ) : null}
-              {renderPreviewPanel(uploadPreviewResult, uploadPreviewState, () => refreshUploadDetails(uploadResult?.upload_id))}
+              <PreviewPanel preview={uploadPreviewResult} previewState={uploadPreviewState} onParentRefresh={() => refreshUploadDetails(uploadResult?.upload_id)} />
             </div>
           ) : null}
         </form>
         {uploadResult ? (
           <GeminiAssistant
+            key="upload-gemini-assistant"
             title="Gemini explanation and chat"
             analysis={{ ...uploadResult, preview: uploadPreviewResult }}
             analysisKey={uploadResult.upload_id || uploadResult.error || uploadResult.detail || "upload-error"}
