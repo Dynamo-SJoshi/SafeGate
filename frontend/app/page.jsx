@@ -516,7 +516,7 @@ function TreeNode({ node, onSelectFile, selectedFile, expandedDirs, toggleDir })
 
   const isSelected = selectedFile?.fullName === node.fullName;
   const ext = "." + node.name.split(".").pop().toLowerCase();
-  const previewableExts = new Set([".txt", ".py", ".js", ".json", ".sh", ".ini", ".md", ".csv", ".yaml", ".yml", ".xml", ".html", ".css", ".sql", ".conf", ".cfg"]);
+  const previewableExts = new Set([".txt", ".py", ".js", ".json", ".sh", ".ini", ".md", ".csv", ".yaml", ".yml", ".xml", ".html", ".css", ".sql", ".conf", ".cfg", ".ps1"]);
   const isPreviewable = previewableExts.has(ext);
 
   return (
@@ -529,7 +529,148 @@ function TreeNode({ node, onSelectFile, selectedFile, expandedDirs, toggleDir })
       {node.size !== null && node.size !== undefined && (
         <span className="file-size">({(node.size / 1024).toFixed(1)} KB)</span>
       )}
-      {isPreviewable && <button className="view-btn">View</button>}
+      <button className="view-btn">{isPreviewable ? "View" : "Inspect"}</button>
+    </div>
+  );
+}
+
+function renderZipItemScanResults(scanResults) {
+  if (!scanResults) return null;
+  const state = scanResults.verdict || "clean";
+  const clamav = scanResults.clamav || {};
+  const yara = scanResults.yara || {};
+  const exif = scanResults.exiftool || {};
+  const sandbox = scanResults.sandbox || null;
+
+  let badgeColor = "var(--warn)";
+  let badgeLabel = "Pending";
+  if (state === "clean") {
+    badgeColor = "var(--good)";
+    badgeLabel = "Clean";
+  } else if (state === "suspicious") {
+    badgeColor = "var(--warn)";
+    badgeLabel = "Suspicious";
+  } else if (state === "malicious") {
+    badgeColor = "var(--bad)";
+    badgeLabel = "Malicious";
+  }
+
+  const exifMetadata = exif.status === "success" && exif.metadata ? exif.metadata : null;
+  const exifKeys = exifMetadata ? Object.keys(exifMetadata).slice(0, 15) : [];
+
+  return (
+    <div className="fingerprintSummary" style={{ marginTop: "20px", background: "rgba(10, 20, 40, 0.3)", border: "1px solid rgba(140, 170, 255, 0.15)" }}>
+      <h3 style={{ borderBottom: "1px solid rgba(140, 170, 255, 0.12)", paddingBottom: "8px", color: "#fff" }}>Security Analysis Verdict</h3>
+      <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "16px", marginTop: "12px" }}>
+        <span
+          className="badge"
+          style={{
+            backgroundColor: badgeColor,
+            color: "#08111f",
+            fontWeight: "bold",
+            padding: "4px 12px",
+            borderRadius: "10px",
+            fontSize: "0.85rem"
+          }}
+        >
+          {badgeLabel.toUpperCase()}
+        </span>
+      </div>
+
+      <div className="staticAnalyzersGrid" style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px", marginTop: "12px" }}>
+        {/* ClamAV */}
+        <div className="analyzerCard" style={{ border: "1px solid rgba(140, 170, 255, 0.1)", padding: "12px", borderRadius: "12px", background: "rgba(255,255,255,0.01)" }}>
+          <h4 style={{ margin: "0 0 6px 0", color: "var(--accent)", fontSize: "0.9rem" }}>ClamAV Antivirus</h4>
+          <p style={{ margin: 0, fontSize: "0.85rem" }}>
+            Verdict: <strong style={{ color: clamav.verdict === "infected" ? "var(--bad)" : "inherit" }}>
+              {clamav.verdict ? clamav.verdict.toUpperCase() : "NOT RUN"}
+            </strong>
+          </p>
+          {clamav.details && <p style={{ margin: "4px 0 0 0", fontSize: "0.8rem", color: "var(--muted)" }}>{clamav.details}</p>}
+        </div>
+
+        {/* YARA */}
+        <div className="analyzerCard" style={{ border: "1px solid rgba(140, 170, 255, 0.1)", padding: "12px", borderRadius: "12px", background: "rgba(255,255,255,0.01)" }}>
+          <h4 style={{ margin: "0 0 6px 0", color: "var(--accent)", fontSize: "0.9rem" }}>YARA Rules</h4>
+          <p style={{ margin: 0, fontSize: "0.85rem" }}>
+            Verdict: <strong>{yara.verdict ? yara.verdict.toUpperCase() : "NOT RUN"}</strong>
+          </p>
+          {yara.details && <p style={{ margin: "4px 0 0 0", fontSize: "0.8rem", color: "var(--muted)" }}>{yara.details}</p>}
+          {yara.matches && yara.matches.length > 0 && (
+            <div style={{ marginTop: "8px" }}>
+              <p style={{ margin: "0 0 4px 0", fontSize: "0.8rem", fontWeight: "bold" }}>Matches:</p>
+              <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "0.8rem" }}>
+                {yara.matches.map((m, idx) => (
+                  <li key={idx} style={{ color: "var(--bad)" }}>
+                    Rule: <code>{m.rule}</code> {m.meta?.description ? `- ${m.meta.description}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* ExifTool Metadata */}
+        {exifMetadata && (
+          <div className="analyzerCard" style={{ border: "1px solid rgba(140, 170, 255, 0.1)", padding: "12px", borderRadius: "12px", background: "rgba(255,255,255,0.01)" }}>
+            <h4 style={{ margin: "0 0 6px 0", color: "var(--accent)", fontSize: "0.9rem" }}>Metadata Analysis</h4>
+            <div style={{ maxHeight: "150px", overflowY: "auto", fontSize: "0.8rem" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <tbody>
+                  {exifKeys.map((key) => (
+                    <tr key={key} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                      <td style={{ padding: "4px 8px 4px 0", color: "var(--muted)", fontWeight: "bold" }}>{key}</td>
+                      <td style={{ padding: "4px 0", wordBreak: "break-all" }}>{String(exifMetadata[key])}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Dynamic Sandbox */}
+        {sandbox && sandbox.executed && (
+          <div className="analyzerCard" style={{ border: "1px solid rgba(140, 170, 255, 0.1)", padding: "12px", borderRadius: "12px", background: "rgba(255,255,255,0.01)" }}>
+            <h4 style={{ margin: "0 0 6px 0", color: "var(--accent)", fontSize: "0.9rem" }}>Dynamic Sandbox</h4>
+            <p style={{ margin: 0, fontSize: "0.85rem" }}>
+              Verdict: <strong style={{ color: sandbox.verdict === "malicious" ? "var(--bad)" : sandbox.verdict === "suspicious" ? "var(--warn)" : "inherit" }}>
+                {sandbox.verdict ? sandbox.verdict.toUpperCase() : "NOT RUN"}
+              </strong>
+            </p>
+            {sandbox.reason && <p style={{ margin: "4px 0 0 0", fontSize: "0.8rem", color: "var(--muted)", fontStyle: "italic" }}>{sandbox.reason}</p>}
+            {sandbox.details && <p style={{ margin: "4px 0 0 0", fontSize: "0.8rem", color: "var(--muted)" }}>{sandbox.details}</p>}
+            {sandbox.behavior_alerts && sandbox.behavior_alerts.length > 0 && (
+              <div style={{ marginTop: "8px" }}>
+                <p style={{ margin: "0 0 4px 0", fontSize: "0.8rem", fontWeight: "bold", color: "var(--bad)" }}>Behavior Alerts:</p>
+                <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "0.8rem" }}>
+                  {sandbox.behavior_alerts.map((alert, idx) => (
+                    <li key={idx} style={{ color: "var(--bad)" }}>
+                      {alert}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {sandbox.logs && (
+              <div style={{ marginTop: "12px" }}>
+                <p style={{ margin: "0 0 4px 0", fontSize: "0.8rem", fontWeight: "bold" }}>Execution Logs:</p>
+                <pre style={{
+                  margin: 0,
+                  padding: "8px",
+                  background: "rgba(0,0,0,0.3)",
+                  borderRadius: "6px",
+                  fontSize: "0.75rem",
+                  maxHeight: "120px",
+                  overflowY: "auto",
+                  color: "var(--muted)",
+                  whiteSpace: "pre-wrap"
+                }}>{sandbox.logs}</pre>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -560,10 +701,6 @@ function ZipExplorer({ items, uploadId }) {
     setFileContent(null);
     setFileError(null);
 
-    if (!isPreviewable) {
-      return;
-    }
-
     setLoadingFile(true);
     try {
       const res = await fetch(`/api/preview/${uploadId}/zip-file?file_path=${encodeURIComponent(node.fullName)}`);
@@ -585,7 +722,7 @@ function ZipExplorer({ items, uploadId }) {
   }
 
   const ext = selectedFile ? "." + selectedFile.name.split(".").pop().toLowerCase() : "";
-  const previewableExts = new Set([".txt", ".py", ".js", ".json", ".sh", ".ini", ".md", ".csv", ".yaml", ".yml", ".xml", ".html", ".css", ".sql", ".conf", ".cfg"]);
+  const previewableExts = new Set([".txt", ".py", ".js", ".json", ".sh", ".ini", ".md", ".csv", ".yaml", ".yml", ".xml", ".html", ".css", ".sql", ".conf", ".cfg", ".ps1"]);
   const isSelectedFilePreviewable = selectedFile && previewableExts.has(ext);
 
   return (
@@ -618,23 +755,57 @@ function ZipExplorer({ items, uploadId }) {
               </div>
             </div>
             {loadingFile ? (
-              <p>Fetching file content snippet...</p>
+              <div className="sandbox-loading" style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "40px 20px",
+                gap: "16px",
+                background: "rgba(140, 170, 255, 0.02)",
+                border: "1px dashed rgba(140, 170, 255, 0.15)",
+                borderRadius: "12px",
+                color: "var(--muted)",
+                textAlign: "center"
+              }}>
+                <div className="spinner">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <div style={{ marginTop: "12px" }}>
+                  <strong style={{ color: "var(--accent)" }}>Extracting & Scanning File...</strong>
+                  <p style={{ margin: "6px 0 0 0", fontSize: "0.85rem" }}>
+                    SafeGate is spinning up an isolated container to scan patterns and verify dynamic behavior (may take up to 10 seconds).
+                  </p>
+                </div>
+              </div>
             ) : fileError ? (
               <p style={{ color: "var(--bad)" }}>{fileError}</p>
-            ) : !isSelectedFilePreviewable ? (
-              <div className="binary-warning">
-                <span className="binary-warning-icon">⚠️</span>
-                <span className="binary-warning-title">Inline Preview Disabled</span>
-                <span className="binary-warning-desc">
-                  For security reasons, inline previews are disabled for binary files (e.g., executables, images, or compressed folders).
-                </span>
-              </div>
-            ) : fileContent ? (
-              <pre
-                className="zipFileContent"
-                dangerouslySetInnerHTML={{ __html: fileContent.content }}
-              />
-            ) : null}
+            ) : (
+              <>
+                {!isSelectedFilePreviewable ? (
+                  <div className="binary-warning" style={{ marginBottom: "16px" }}>
+                    <span className="binary-warning-icon">⚠️</span>
+                    <span className="binary-warning-title">Inline Preview Disabled</span>
+                    <span className="binary-warning-desc">
+                      For security reasons, inline previews are disabled for binary files (e.g., executables, images, or compressed folders).
+                    </span>
+                  </div>
+                ) : fileContent ? (
+                  <pre
+                    className="zipFileContent"
+                    dangerouslySetInnerHTML={{ __html: fileContent.content }}
+                  />
+                ) : null}
+                {fileContent && fileContent.scan_results && renderZipItemScanResults(fileContent.scan_results)}
+              </>
+            )}
           </>
         ) : (
           <div className="zip-explorer-empty">

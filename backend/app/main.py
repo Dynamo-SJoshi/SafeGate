@@ -371,6 +371,7 @@ def preview_zip_file(upload_id: str, file_path: str):
 
     import zipfile
     import html
+    import shutil
 
     try:
         with zipfile.ZipFile(stored_path) as archive:
@@ -386,10 +387,63 @@ def preview_zip_file(upload_id: str, file_path: str):
                     "content": "This is a directory.",
                     "is_binary": False,
                     "size_bytes": 0,
+                    "scan_results": None
                 }
 
+            # 1. Extract file temporarily for security scans
+            suffix = Path(norm_path).suffix
+            temp_scan_file = UPLOAD_ROOT / f"zip_temp_{upload_id}_{uuid4().hex}{suffix}"
+            
+            clamav_res = {"verdict": "skipped", "details": "ClamAV not run."}
+            yara_res = {"verdict": "skipped", "details": "YARA not run."}
+            exif_res = {"status": "skipped", "details": "ExifTool not run."}
+            sandbox_res = {"verdict": "skipped", "reason": "Sandbox not run.", "executed": False}
+            
+            try:
+                with archive.open(norm_path) as source_f:
+                    with open(temp_scan_file, "wb") as dest_f:
+                        shutil.copyfileobj(source_f, dest_f)
+                
+                # Run security scans
+                if ENABLE_CLAMAV:
+                    clamav_res = scan_file_with_clamav(temp_scan_file)
+                else:
+                    clamav_res = {"verdict": "skipped", "details": "ClamAV is disabled in this environment."}
+                
+                if ENABLE_SANDBOX:
+                    from sandbox.sandbox_runner import run_isolated_scans, run_in_sandbox
+                    scan_id = f"zip_{upload_id}_{uuid4().hex[:8]}"
+                    
+                    isolated_res = run_isolated_scans(scan_id, temp_scan_file)
+                    yara_res = isolated_res.get("yara", {"verdict": "error", "details": f"Isolated scan failed: {isolated_res.get('error', 'Unknown error')}"})
+                    exif_res = isolated_res.get("exiftool", {"status": "error", "details": f"Isolated scan failed: {isolated_res.get('error', 'Unknown error')}"})
+                    
+                    sandbox_res = run_in_sandbox(scan_id, temp_scan_file, Path(norm_path).name)
+                else:
+                    yara_res = scan_file_with_yara(temp_scan_file)
+                    exif_res = extract_metadata_with_exiftool(temp_scan_file)
+                    sandbox_res = {"verdict": "skipped", "reason": "Dynamic sandboxing is disabled in this environment.", "executed": False}
+            finally:
+                if temp_scan_file.exists():
+                    temp_scan_file.unlink()
+
+            # Calculate overall verdict for this zip item
+            item_verdict = "clean"
+            if clamav_res.get("verdict") == "infected" or sandbox_res.get("verdict") == "malicious":
+                item_verdict = "malicious"
+            elif yara_res.get("verdict") == "suspicious" or sandbox_res.get("verdict") == "suspicious":
+                item_verdict = "suspicious"
+
+            scan_results = {
+                "verdict": item_verdict,
+                "clamav": clamav_res,
+                "yara": yara_res,
+                "exiftool": exif_res,
+                "sandbox": sandbox_res
+            }
+
             ext = Path(norm_path).suffix.lower()
-            previewable_exts = {".txt", ".py", ".js", ".json", ".sh", ".ini", ".md", ".csv", ".yaml", ".yml", ".xml", ".html", ".css", ".sql", ".conf", ".cfg"}
+            previewable_exts = {".txt", ".py", ".js", ".json", ".sh", ".ini", ".md", ".csv", ".yaml", ".yml", ".xml", ".html", ".css", ".sql", ".conf", ".cfg", ".ps1"}
 
             if ext not in previewable_exts:
                 return {
@@ -397,6 +451,7 @@ def preview_zip_file(upload_id: str, file_path: str):
                     "content": "Binary file: inline preview disabled for safety.",
                     "is_binary": True,
                     "size_bytes": info.file_size,
+                    "scan_results": scan_results
                 }
 
             with archive.open(norm_path) as f:
@@ -413,6 +468,7 @@ def preview_zip_file(upload_id: str, file_path: str):
                             "content": "Binary file: inline preview disabled for safety.",
                             "is_binary": True,
                             "size_bytes": info.file_size,
+                            "scan_results": scan_results
                         }
                     lines.append(line_text)
 
@@ -427,6 +483,7 @@ def preview_zip_file(upload_id: str, file_path: str):
                     "content": sanitized_content,
                     "is_binary": False,
                     "size_bytes": info.file_size,
+                    "scan_results": scan_results
                 }
     except zipfile.BadZipFile:
         raise HTTPException(status_code=400, detail="Invalid ZIP archive structure.")

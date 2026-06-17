@@ -401,3 +401,15 @@ Database Log Null-Byte Sanitization:
 Binary vs. Text Heuristics for Script Override Protection:
 - Added heuristic filtering to the content detector: files containing null bytes (`0x00`) or possessing a high density (>15%) of non-printable control characters are recognized as binary (`.bin` or `.pdf`).
 - Bypasses text-based script keyword overrides on binary uploads, preventing true PDFs and archives from being misclassified as PowerShell scripts and executed inside the container.
+
+2026-06-18 01:56:00 +05:30
+--------------------------
+
+On-Demand ZIP Item Scanner:
+- Implemented an on-demand ZIP file item scanner to significantly reduce server-side extraction overhead.
+- Updated the backend `/preview/{upload_id}/zip-file` endpoint to extract target files to a temporary on-disk path, run ClamAV, YARA, ExifTool, and Sandbox scans, collect results, and clean up the temporary files inside a `try...finally` block.
+- Updated the frontend `ZipExplorer` component to allow selecting and scanning all files (including binary executables and other non-previewable formats).
+- Added an animated security scanning progress loader in the UI to present dynamic sandbox status.
+- Rendered security verdicts and sandbox execution logs inside the zip preview split-pane using aligned dashboard styling.
+- Enabled text content preview for PowerShell (`.ps1`) script files.
+
