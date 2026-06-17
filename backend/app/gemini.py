@@ -344,3 +344,47 @@ def _ensure_prefix(text: str, prefix: str) -> str:
 def is_transient_gemini_error(error: Exception) -> bool:
     message = str(error)
     return any(marker.lower() in message.lower() for marker in TRANSIENT_ERROR_MARKERS)
+
+
+def explain_zip_item_with_gemini(
+    file_path: str,
+    content: str | None,
+    scan_results: dict[str, Any] | None,
+) -> str:
+    prompt = (
+        "Explain the SafeGate technical security report and content for this specific file inside a ZIP archive in very simple terms.\n"
+        "Return exactly 2 lines.\n"
+        "Line 1 must start with 'Summary:' and describe what the file appears to be.\n"
+        "Line 2 must start with 'Advice:' and say if it looks safe, suspicious, or malicious, with a short reason based on the security scan results.\n"
+        "Do not use bullets or extra lines. Ensure you write complete, fully finished sentences. Do not leave quotes or statements unfinished."
+    )
+    
+    # Build a compact analysis block for the ZIP item
+    compact_item = {
+        "file_path": file_path,
+        "content_snippet": content[:2000] if content else None,
+        "scan_results": scan_results
+    }
+    analysis_block = json.dumps(compact_item, ensure_ascii=False, indent=2)[:MAX_ANALYSIS_CHARS]
+    
+    raw_text = _generate_text(prompt=prompt, analysis_block=analysis_block)
+    return _normalize_two_line_answer(raw_text)
+
+
+def build_fallback_zip_item_explanation(
+    file_path: str,
+    scan_results: dict[str, Any] | None,
+) -> str:
+    verdict = (scan_results.get("verdict") if scan_results else "clean") or "clean"
+    filename = Path(file_path).name
+    
+    summary = f"Summary: This is {filename} located at {file_path} inside the archive."
+    
+    if verdict == "malicious":
+        advice = "Advice: This file is flagged as MALICIOUS. Antivirus or sandbox scans detected threats. Do not run or trust this file."
+    elif verdict == "suspicious":
+        advice = "Advice: This file is flagged as SUSPICIOUS. YARA rules or metadata analysis detected anomalies."
+    else:
+        advice = "Advice: This file appears to be CLEAN. SafeGate scans found no known signatures or malicious behaviors."
+        
+    return f"{summary}\n{advice}"

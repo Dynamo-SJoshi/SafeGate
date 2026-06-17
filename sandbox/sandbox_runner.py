@@ -41,12 +41,6 @@ def detect_script_type_from_content(stored_path: Path) -> str | None:
     if b"\x00" in header:
         return ".bin"
 
-    # 2. Heuristic: check density of non-printable/control characters
-    printable_chars = set(b"\n\r\t") | set(range(32, 127))
-    non_printable = sum(1 for byte in header if byte not in printable_chars)
-    if (non_printable / len(header)) > 0.15:
-        return ".bin"
-
     # Text checks
     try:
         content = header.decode("utf-8-sig", errors="ignore").strip()
@@ -55,18 +49,16 @@ def detect_script_type_from_content(stored_path: Path) -> str | None:
 
     # Shebang check
     lines = content.splitlines()
-    if not lines:
-        return None
-        
-    first_line = lines[0].strip()
-    if first_line.startswith("#!"):
-        first_line_lower = first_line.lower()
-        if "python" in first_line_lower:
-            return ".py"
-        if "sh" in first_line_lower or "bash" in first_line_lower:
-            return ".sh"
-        if "pwsh" in first_line_lower or "powershell" in first_line_lower:
-            return ".ps1"
+    if lines:
+        first_line = lines[0].strip()
+        if first_line.startswith("#!"):
+            first_line_lower = first_line.lower()
+            if "python" in first_line_lower:
+                return ".py"
+            if "sh" in first_line_lower or "bash" in first_line_lower:
+                return ".sh"
+            if "pwsh" in first_line_lower or "powershell" in first_line_lower:
+                return ".ps1"
 
     content_lower = content.lower()
     
@@ -117,6 +109,12 @@ def detect_script_type_from_content(stored_path: Path) -> str | None:
     best_ext = max(scores, key=scores.get)
     if scores[best_ext] >= 2:
         return best_ext
+
+    # 2. Heuristic: check density of non-printable/control characters
+    printable_chars = set(b"\n\r\t") | set(range(32, 127))
+    non_printable = sum(1 for byte in header if byte not in printable_chars)
+    if (non_printable / len(header)) > 0.15:
+        return ".bin"
 
     return None
 

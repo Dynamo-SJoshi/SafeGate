@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import GeminiAssistant from "./GeminiAssistant";
+import GeminiZipItemAssistant from "./GeminiZipItemAssistant";
 import SecurityReport from "./SecurityReport";
 
 function renderStaticAnalysis(result) {
@@ -829,6 +830,14 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
                   />
                 ) : null}
                 {fileContent && fileContent.scan_results && renderZipItemScanResults(fileContent.scan_results)}
+                {fileContent && (
+                  <GeminiZipItemAssistant
+                    filePath={selectedFile.fullName}
+                    content={fileContent.content}
+                    scanResults={fileContent.scan_results}
+                    title="Gemini File Explanation"
+                  />
+                )}
               </>
             )}
           </>

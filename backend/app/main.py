@@ -22,6 +22,8 @@ from .gemini import (
     build_fallback_explanation,
     explain_analysis_with_gemini,
     is_transient_gemini_error,
+    explain_zip_item_with_gemini,
+    build_fallback_zip_item_explanation,
 )
 from .previewing import build_preview
 from .url_fetching import fetch_remote_source
@@ -97,6 +99,12 @@ class GeminiExplainRequest(BaseModel):
     analysis: dict[str, object]
 
 
+class GeminiExplainZipItemRequest(BaseModel):
+    file_path: str
+    content: str | None = None
+    scan_results: dict[str, object] | None = None
+
+
 class GeminiChatMessage(BaseModel):
     role: str
     content: str
@@ -133,6 +141,30 @@ def gemini_explain(payload: GeminiExplainRequest):
         if is_transient_gemini_error(exc):
             return {
                 "answer": build_fallback_explanation(payload.analysis),
+                "mode": "fallback",
+                "detail": str(exc),
+            }
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/gemini/explain-zip-item")
+def gemini_explain_zip_item(payload: GeminiExplainZipItemRequest):
+    try:
+        answer = explain_zip_item_with_gemini(
+            file_path=payload.file_path,
+            content=payload.content,
+            scan_results=payload.scan_results,
+        )
+        return {"answer": answer, "mode": "gemini"}
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        if is_transient_gemini_error(exc):
+            return {
+                "answer": build_fallback_zip_item_explanation(
+                    file_path=payload.file_path,
+                    scan_results=payload.scan_results,
+                ),
                 "mode": "fallback",
                 "detail": str(exc),
             }
