@@ -49,7 +49,7 @@ def detect_script_type_from_content(stored_path: Path) -> str | None:
 
     # Text checks
     try:
-        content = header.decode("utf-8", errors="ignore").strip()
+        content = header.decode("utf-8-sig", errors="ignore").strip()
     except Exception:
         return None
 

@@ -41,7 +41,19 @@ def fingerprint_file(file_path: Path, claimed_filename: str, claimed_content_typ
     )
 
     claimed_normalized = normalize_claimed_type(claimed_filename, claimed_content_type)
-    match_status = "match" if claimed_normalized == detected_type else "mismatch"
+    
+    text_extensions = {
+        "txt", "md", "py", "js", "json", "sh", "ps1", "html", "css", 
+        "xml", "yaml", "yml", "ini", "conf", "cfg", "sql", "csv"
+    }
+    
+    is_claimed_text = claimed_normalized.startswith("text/") or extension in text_extensions
+    is_detected_text = detected_type.startswith("text/")
+    
+    if is_claimed_text and is_detected_text:
+        match_status = "match"
+    else:
+        match_status = "match" if claimed_normalized == detected_type else "mismatch"
 
     return FingerprintResult(
         claimed_filename=claimed_filename,
@@ -142,6 +154,27 @@ def detect_file_type(
     if header.startswith(b"\x1aE\xdf\xa3"):
         indicators.append("mkv-ebml-header")
         return "video/x-matroska", "video/x-matroska", indicators, "high"
+
+    # Check if the file looks like text
+    if not header:
+        return "text/plain", "text/plain", indicators, "low"
+
+    if b"\x00" not in header:
+        # Try to decode to check for HTML specifically
+        try:
+            header_text = header.decode("utf-8-sig", errors="ignore").strip().lower()
+            if header_text.startswith("<!doctype html") or "<html" in header_text:
+                indicators.append("html-elements")
+                return "text/html", "text/html", indicators, "high"
+        except Exception:
+            pass
+
+        # Check printable character density
+        printable_chars = set(b"\n\r\t") | set(range(32, 127))
+        non_printable = sum(1 for byte in header if byte not in printable_chars)
+        if len(header) > 0 and (non_printable / len(header)) < 0.10:
+            indicators.append("printable-text-heuristics")
+            return "text/plain", "text/plain", indicators, "medium"
 
     return "unknown", "application/octet-stream", indicators, "low"
 
