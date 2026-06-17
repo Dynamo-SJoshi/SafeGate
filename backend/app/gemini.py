@@ -285,7 +285,17 @@ def _local_summary_line(analysis: dict[str, Any], question: str | None = None) -
     match_status = str((analysis.get("fingerprint") or {}).get("match_status") or "unknown")
     detected_type = str((analysis.get("fingerprint") or {}).get("detected_content_type") or analysis.get("content_type") or "unknown")
 
-    if source_state == "pending":
+    static_analysis = analysis.get("static_analysis") or {}
+    zip_findings = static_analysis.get("zip_findings") or []
+    is_zip = str(analysis.get("original_filename") or "").lower().endswith(".zip") or analysis.get("content_type") == "application/zip"
+
+    if source_state == "malicious" and is_zip and zip_findings:
+        malicious_paths = [item.get("file_path") for item in zip_findings if item.get("verdict") == "malicious"]
+        if malicious_paths:
+            base = f"Summary: This ZIP archive contains a malicious file named '{malicious_paths[0]}'."
+        else:
+            base = "Summary: This ZIP archive contains suspicious items flagged during internal scans."
+    elif source_state == "pending":
         base = f"Summary: SafeGate has received the {source_kind}, but the analysis is still pending."
     elif source_state == "landing_page":
         base = "Summary: This looks like a webpage that points to a download, not the final file yet."
@@ -315,7 +325,20 @@ def _local_advice_line(analysis: dict[str, Any], question: str | None = None) ->
     match_status = str((analysis.get("fingerprint") or {}).get("match_status") or "unknown")
     confidence = str((analysis.get("fingerprint") or {}).get("confidence") or "unknown")
 
-    if source_state == "pending":
+    static_analysis = analysis.get("static_analysis") or {}
+    zip_findings = static_analysis.get("zip_findings") or []
+    is_zip = str(analysis.get("original_filename") or "").lower().endswith(".zip") or analysis.get("content_type") == "application/zip"
+
+    if source_state == "malicious" and is_zip and zip_findings:
+        malicious_items = [item for item in zip_findings if item.get("verdict") == "malicious"]
+        if malicious_items:
+            path = malicious_items[0].get("file_path", "Unknown")
+            alerts = malicious_items[0].get("alerts")
+            alerts_str = ", ".join(alerts) if isinstance(alerts, list) else str(alerts or "threat signature matched")
+            advice = f"Advice: Do not extract or open this archive. The file '{path}' is malicious: {alerts_str}."
+        else:
+            advice = "Advice: Do not extract or trust this archive. Security scans flagged threats in its contents."
+    elif source_state == "pending":
         advice = "Advice: Wait for deeper analysis before deciding."
     elif source_state == "landing_page":
         advice = "Advice: Open a candidate link only if the file source looks trustworthy."

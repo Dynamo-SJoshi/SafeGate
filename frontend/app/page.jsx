@@ -191,265 +191,6 @@ function renderStaticAnalysis(result) {
   );
 }
 
-export default function HomePage() {
-  const [health, setHealth] = useState("checking");
-  const [details, setDetails] = useState(null);
-  const [urlInput, setUrlInput] = useState("");
-  const [urlState, setUrlState] = useState("idle");
-  const [urlResult, setUrlResult] = useState(null);
-  const [analysisHistory, setAnalysisHistory] = useState([]);
-  const [urlPreviewState, setUrlPreviewState] = useState("idle");
-  const [urlPreviewResult, setUrlPreviewResult] = useState(null);
-  const [urlDetailsOpen, setUrlDetailsOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [uploadState, setUploadState] = useState("idle");
-  const [uploadResult, setUploadResult] = useState(null);
-  const [uploadPreviewState, setUploadPreviewState] = useState("idle");
-  const [uploadPreviewResult, setUploadPreviewResult] = useState(null);
-  const [uploadDetailsOpen, setUploadDetailsOpen] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
-  const [selectedReportId, setSelectedReportId] = useState(null);
-
-  const refreshUploadDetails = async (uploadId) => {
-    if (!uploadId) return;
-    try {
-      const response = await fetch(`/api/upload/${uploadId}`, { cache: "no-store" });
-      if (response.ok) {
-        const data = await response.json();
-        setUploadResult((prev) => prev && prev.upload_id === uploadId ? data : prev);
-        setUrlResult((prev) => prev && prev.upload_id === uploadId ? data : prev);
-      }
-    } catch (err) {
-      console.error("Failed to refresh upload details:", err);
-    }
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function checkHealth() {
-      try {
-        const response = await fetch("/api/health", { cache: "no-store" });
-        const data = await response.json();
-
-        if (!cancelled) {
-          setHealth(response.ok ? "online" : "error");
-          setDetails(data);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setHealth("offline");
-          setDetails({ error: "Unable to reach backend health endpoint." });
-        }
-      }
-    }
-
-    checkHealth();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  async function runUrlAnalysis(targetUrl) {
-    const normalizedUrl = targetUrl.trim();
-
-    if (!normalizedUrl) {
-      setUrlState("missing-url");
-      setUrlResult({ error: "Please paste a download link first." });
-      return;
-    }
-
-    setUrlInput(normalizedUrl);
-    setUrlState("analyzing");
-    setUrlResult(null);
-    setUrlPreviewState("idle");
-    setUrlPreviewResult(null);
-    setUrlDetailsOpen(false);
-
-    try {
-      const response = await fetch("/api/analyze-url", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ url: normalizedUrl }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setUrlState("error");
-        setUrlResult(data);
-        return;
-      }
-
-      if (data.analysis_state === "pending") {
-        setUrlState("scanning");
-        setUrlResult(data);
-        const pollInterval = setInterval(async () => {
-          try {
-            const pollResponse = await fetch(`/api/upload/${data.upload_id}`, { cache: "no-store" });
-            if (!pollResponse.ok) {
-              clearInterval(pollInterval);
-              setUrlState("error");
-              setUrlResult({ error: "Background scanning status check failed." });
-              return;
-            }
-            const pollData = await pollResponse.json();
-            if (pollData.analysis_state !== "pending") {
-              clearInterval(pollInterval);
-              setUrlState("done");
-              setUrlResult(pollData);
-              setAnalysisHistory((previousHistory) => {
-                const nextEntry = {
-                  inspected_url: normalizedUrl,
-                  analyzed_at: new Date().toISOString(),
-                  ...pollData,
-                };
-                const deduped = previousHistory.filter((entry) => entry.inspected_url !== normalizedUrl);
-                return [nextEntry, ...deduped].slice(0, 8);
-              });
-            }
-          } catch (err) {
-            clearInterval(pollInterval);
-            setUrlState("error");
-            setUrlResult({ error: "Background scanning check connection failed." });
-          }
-        }, 2000);
-      } else {
-        setUrlState("done");
-        setUrlResult(data);
-        setAnalysisHistory((previousHistory) => {
-          const nextEntry = {
-            inspected_url: normalizedUrl,
-            analyzed_at: new Date().toISOString(),
-            ...data,
-          };
-          const deduped = previousHistory.filter((entry) => entry.inspected_url !== normalizedUrl);
-          return [nextEntry, ...deduped].slice(0, 8);
-        });
-      }
-    } catch (error) {
-      setUrlState("error");
-      setUrlResult({ error: "URL analysis failed." });
-    }
-  }
-
-  async function handleAnalyzeUrl(event) {
-    event.preventDefault();
-    await runUrlAnalysis(urlInput);
-  }
-
-  async function handleCandidateInspect(candidateUrl) {
-    await runUrlAnalysis(candidateUrl);
-  }
-
-  function findCandidateAnalysis(candidateUrl) {
-    return analysisHistory.find((entry) => entry.inspected_url === candidateUrl);
-  }
-
-  async function loadPreview(uploadId, setPreviewState, setPreviewResult) {
-    if (!uploadId) {
-      setPreviewState("missing-upload");
-      setPreviewResult({ error: "No analyzed upload is available yet." });
-      return;
-    }
-
-    setPreviewState("loading");
-    setPreviewResult(null);
-
-    try {
-      const response = await fetch("/api/preview", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ upload_id: uploadId }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setPreviewState("error");
-        setPreviewResult(data);
-        return;
-      }
-
-      setPreviewState("done");
-      setPreviewResult(data);
-    } catch (error) {
-      setPreviewState("error");
-      setPreviewResult({ error: "Preview load failed." });
-    }
-  }
-
-  async function handleUpload(event) {
-    event.preventDefault();
-
-    if (!selectedFile) {
-      setUploadState("missing-file");
-      setUploadResult({ error: "Please choose a file first." });
-      return;
-    }
-
-    setUploadState("uploading");
-    setUploadResult(null);
-    setUploadPreviewState("idle");
-    setUploadPreviewResult(null);
-    setUploadDetailsOpen(false);
-
-    const formData = new FormData();
-    formData.append("file", selectedFile);
-
-    try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setUploadState("error");
-        setUploadResult(data);
-        return;
-      }
-
-      if (data.analysis_state === "pending") {
-        setUploadState("scanning");
-        setUploadResult(data);
-        const pollInterval = setInterval(async () => {
-          try {
-            const pollResponse = await fetch(`/api/upload/${data.upload_id}`, { cache: "no-store" });
-            if (!pollResponse.ok) {
-              clearInterval(pollInterval);
-              setUploadState("error");
-              setUploadResult({ error: "Background scanning status check failed." });
-              return;
-            }
-            const pollData = await pollResponse.json();
-            if (pollData.analysis_state !== "pending") {
-              clearInterval(pollInterval);
-              setUploadState("done");
-              setUploadResult(pollData);
-            }
-          } catch (err) {
-            clearInterval(pollInterval);
-            setUploadState("error");
-            setUploadResult({ error: "Background scanning check connection failed." });
-          }
-        }, 2000);
-      } else {
-        setUploadState("done");
-        setUploadResult(data);
-      }
-    } catch (error) {
-      setUploadState("error");
-      setUploadResult({ error: "Upload failed." });
-    }
-  }
-
 function buildTree(items) {
   const root = { name: "Root", isDirectory: true, children: {} };
   for (const item of items) {
@@ -704,10 +445,16 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
   const [loadingFile, setLoadingFile] = useState(false);
   const [fileError, setFileError] = useState(null);
 
+  console.log("ZipExplorer render, selectedFile:", selectedFile?.fullName, "items count:", items?.length);
+
   useEffect(() => {
+    console.log("ZipExplorer mounted for uploadId:", uploadId);
     if (items) {
       setTree(buildTree(items));
     }
+    return () => {
+      console.log("ZipExplorer UNMOUNTED");
+    };
   }, [items]);
 
   const toggleDir = (fullName) => {
@@ -852,95 +599,356 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
   );
 }
 
-  function renderPreviewPanel(preview, previewState, onParentRefresh) {
-    if (previewState === "loading") {
-      return <p>Generating safe preview...</p>;
-    }
+function renderPreviewPanel(preview, previewState, onParentRefresh) {
+  if (previewState === "loading") {
+    return <p>Generating safe preview...</p>;
+  }
 
-    if (previewState === "error") {
-      return <p>{preview?.error ?? "Preview generation failed."}</p>;
-    }
+  if (previewState === "error") {
+    return <p>{preview?.error ?? "Preview generation failed."}</p>;
+  }
 
-    if (!preview && previewState !== "done") {
-      return null;
-    }
+  if (!preview && previewState !== "done") {
+    return null;
+  }
 
-    if (preview?.preview_kind === "renderable-file" && preview.preview_url) {
-      const contentType = preview.content_type || "";
-      if (contentType.startsWith("image/")) {
-        return <img className="previewMedia" src={preview.preview_url} alt={preview.preview_title} />;
-      }
-      if (contentType.startsWith("video/")) {
-        return <video className="previewMedia" controls src={preview.preview_url} />;
-      }
-      if (contentType.startsWith("audio/")) {
-        return <audio className="previewAudio" controls src={preview.preview_url} />;
-      }
-      return (
-        <iframe
-          className="previewFrame"
-          src={preview.preview_url}
-          title={preview.preview_title}
+  if (preview?.preview_kind === "renderable-file" && preview.preview_url) {
+    const contentType = preview.content_type || "";
+    if (contentType.startsWith("image/")) {
+      return <img className="previewMedia" src={preview.preview_url} alt={preview.preview_title} />;
+    }
+    if (contentType.startsWith("video/")) {
+      return <video className="previewMedia" controls src={preview.preview_url} />;
+    }
+    if (contentType.startsWith("audio/")) {
+      return <audio className="previewAudio" controls src={preview.preview_url} />;
+    }
+    return (
+      <iframe
+        className="previewFrame"
+        src={preview.preview_url}
+        title={preview.preview_title}
+      />
+    );
+  }
+
+  if (preview?.preview_kind === "html-screenshot" && preview.preview_url) {
+    return (
+      <div className="previewStructured">
+        <h4>Rendered Sandbox Preview</h4>
+        <p style={{ color: "#94a3b8", fontSize: "0.875rem", marginBottom: "1rem" }}>
+          This screenshot shows a secure, headless browser rendering of the HTML page inside our sandbox container.
+        </p>
+        <img 
+          className="previewMedia" 
+          src={preview.preview_url} 
+          alt="HTML Sandbox Screenshot Preview" 
+          style={{ 
+            border: "1px solid #334155", 
+            borderRadius: "0.5rem", 
+            maxWidth: "100%", 
+            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)" 
+          }} 
         />
-      );
-    }
+      </div>
+    );
+  }
 
-    if (preview?.preview_kind === "html-screenshot" && preview.preview_url) {
-      return (
-        <div className="previewStructured">
-          <h4>Rendered Sandbox Preview</h4>
-          <p style={{ color: "#94a3b8", fontSize: "0.875rem", marginBottom: "1rem" }}>
-            This screenshot shows a secure, headless browser rendering of the HTML page inside our sandbox container.
-          </p>
-          <img 
-            className="previewMedia" 
-            src={preview.preview_url} 
-            alt="HTML Sandbox Screenshot Preview" 
-            style={{ 
-              border: "1px solid #334155", 
-              borderRadius: "0.5rem", 
-              maxWidth: "100%", 
-              boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)" 
-            }} 
-          />
-        </div>
-      );
-    }
-
-    if (preview?.preview_kind === "archive-listing") {
-      return (
-        <div className="previewStructured">
-          <h4>{preview?.preview_title ?? "Safe preview"}</h4>
-          <p>{preview?.summary ?? "Preview not loaded yet."}</p>
-          <ZipExplorer items={preview.items} uploadId={preview.upload_id} onParentRefresh={onParentRefresh} />
-        </div>
-      );
-    }
-
+  if (preview?.preview_kind === "archive-listing") {
     return (
       <div className="previewStructured">
         <h4>{preview?.preview_title ?? "Safe preview"}</h4>
         <p>{preview?.summary ?? "Preview not loaded yet."}</p>
-        {preview?.text ? <pre className="previewText">{preview.text}</pre> : null}
-        {preview?.items?.length ? (
-          <div className="previewItems">
-            <p>Preview items:</p>
-            <ul>
-              {preview.items.map((item) => (
-                <li key={item.name}>
-                  <strong>{item.name}</strong>
-                  <span>
-                    {" "}
-                    - {item.size} bytes
-                    {item.compressed_size !== undefined ? ` / ${item.compressed_size} compressed` : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
+        <ZipExplorer items={preview.items} uploadId={preview.upload_id} onParentRefresh={onParentRefresh} />
       </div>
     );
+  }
+
+  return (
+    <div className="previewStructured">
+      <h4>{preview?.preview_title ?? "Safe preview"}</h4>
+      <p>{preview?.summary ?? "Preview not loaded yet."}</p>
+      {preview?.text ? <pre className="previewText">{preview.text}</pre> : null}
+      {preview?.items?.length ? (
+        <div className="previewItems">
+          <p>Preview items:</p>
+          <ul>
+            {preview.items.map((item) => (
+              <li key={item.name}>
+                <strong>{item.name}</strong>
+                <span>
+                  {" "}
+                  - {item.size} bytes
+                  {item.compressed_size !== undefined ? ` / ${item.compressed_size} compressed` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export default function HomePage() {
+  const [health, setHealth] = useState("checking");
+  const [details, setDetails] = useState(null);
+  const [urlInput, setUrlInput] = useState("");
+  const [urlState, setUrlState] = useState("idle");
+  const [urlResult, setUrlResult] = useState(null);
+  const [analysisHistory, setAnalysisHistory] = useState([]);
+  const [urlPreviewState, setUrlPreviewState] = useState("idle");
+  const [urlPreviewResult, setUrlPreviewResult] = useState(null);
+  const [urlDetailsOpen, setUrlDetailsOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadState, setUploadState] = useState("idle");
+  const [uploadResult, setUploadResult] = useState(null);
+  const [uploadPreviewState, setUploadPreviewState] = useState("idle");
+  const [uploadPreviewResult, setUploadPreviewResult] = useState(null);
+  const [uploadDetailsOpen, setUploadDetailsOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [selectedReportId, setSelectedReportId] = useState(null);
+
+  console.log("HomePage render. uploadResult ID:", uploadResult?.upload_id, "uploadPreviewResult:", !!uploadPreviewResult, "urlResult ID:", urlResult?.upload_id, "urlPreviewResult:", !!urlPreviewResult);
+
+  const refreshUploadDetails = async (uploadId) => {
+    if (!uploadId) return;
+    try {
+      const response = await fetch(`/api/upload/${uploadId}`, { cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        setUploadResult((prev) => prev && prev.upload_id === uploadId ? data : prev);
+        setUrlResult((prev) => prev && prev.upload_id === uploadId ? data : prev);
+      }
+    } catch (err) {
+      console.error("Failed to refresh upload details:", err);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkHealth() {
+      try {
+        const response = await fetch("/api/health", { cache: "no-store" });
+        const data = await response.json();
+
+        if (!cancelled) {
+          setHealth(response.ok ? "online" : "error");
+          setDetails(data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setHealth("offline");
+          setDetails({ error: "Unable to reach backend health endpoint." });
+        }
+      }
+    }
+
+    checkHealth();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function runUrlAnalysis(targetUrl) {
+    const normalizedUrl = targetUrl.trim();
+
+    if (!normalizedUrl) {
+      setUrlState("missing-url");
+      setUrlResult({ error: "Please paste a download link first." });
+      return;
+    }
+
+    setUrlInput(normalizedUrl);
+    setUrlState("analyzing");
+    setUrlResult(null);
+    setUrlPreviewState("idle");
+    setUrlPreviewResult(null);
+    setUrlDetailsOpen(false);
+
+    try {
+      const response = await fetch("/api/analyze-url", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url: normalizedUrl }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setUrlState("error");
+        setUrlResult(data);
+        return;
+      }
+
+      if (data.analysis_state === "pending") {
+        setUrlState("scanning");
+        setUrlResult(data);
+        const pollInterval = setInterval(async () => {
+          try {
+            const pollResponse = await fetch(`/api/upload/${data.upload_id}`, { cache: "no-store" });
+            if (!pollResponse.ok) {
+              clearInterval(pollInterval);
+              setUrlState("error");
+              setUrlResult({ error: "Background scanning status check failed." });
+              return;
+            }
+            const pollData = await pollResponse.json();
+            if (pollData.analysis_state !== "pending") {
+              clearInterval(pollInterval);
+              setUrlState("done");
+              setUrlResult(pollData);
+              setAnalysisHistory((previousHistory) => {
+                const nextEntry = {
+                  inspected_url: normalizedUrl,
+                  analyzed_at: new Date().toISOString(),
+                  ...pollData,
+                };
+                const deduped = previousHistory.filter((entry) => entry.inspected_url !== normalizedUrl);
+                return [nextEntry, ...deduped].slice(0, 8);
+              });
+            }
+          } catch (err) {
+            clearInterval(pollInterval);
+            setUrlState("error");
+            setUrlResult({ error: "Background scanning check connection failed." });
+          }
+        }, 2000);
+      } else {
+        setUrlState("done");
+        setUrlResult(data);
+        setAnalysisHistory((previousHistory) => {
+          const nextEntry = {
+            inspected_url: normalizedUrl,
+            analyzed_at: new Date().toISOString(),
+            ...data,
+          };
+          const deduped = previousHistory.filter((entry) => entry.inspected_url !== normalizedUrl);
+          return [nextEntry, ...deduped].slice(0, 8);
+        });
+      }
+    } catch (error) {
+      setUrlState("error");
+      setUrlResult({ error: "URL analysis failed." });
+    }
+  }
+
+  async function handleAnalyzeUrl(event) {
+    event.preventDefault();
+    await runUrlAnalysis(urlInput);
+  }
+
+  async function handleCandidateInspect(candidateUrl) {
+    await runUrlAnalysis(candidateUrl);
+  }
+
+  function findCandidateAnalysis(candidateUrl) {
+    return analysisHistory.find((entry) => entry.inspected_url === candidateUrl);
+  }
+
+  async function loadPreview(uploadId, setPreviewState, setPreviewResult) {
+    if (!uploadId) {
+      setPreviewState("missing-upload");
+      setPreviewResult({ error: "No analyzed upload is available yet." });
+      return;
+    }
+
+    setPreviewState("loading");
+    setPreviewResult(null);
+
+    try {
+      const response = await fetch("/api/preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ upload_id: uploadId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setPreviewState("error");
+        setPreviewResult(data);
+        return;
+      }
+
+      setPreviewState("done");
+      setPreviewResult(data);
+    } catch (error) {
+      setPreviewState("error");
+      setPreviewResult({ error: "Preview load failed." });
+    }
+  }
+
+  async function handleUpload(event) {
+    event.preventDefault();
+
+    if (!selectedFile) {
+      setUploadState("missing-file");
+      setUploadResult({ error: "Please choose a file first." });
+      return;
+    }
+
+    setUploadState("uploading");
+    setUploadResult(null);
+    setUploadPreviewState("idle");
+    setUploadPreviewResult(null);
+    setUploadDetailsOpen(false);
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    try {
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setUploadState("error");
+        setUploadResult(data);
+        return;
+      }
+
+      if (data.analysis_state === "pending") {
+        setUploadState("scanning");
+        setUploadResult(data);
+        const pollInterval = setInterval(async () => {
+          try {
+            const pollResponse = await fetch(`/api/upload/${data.upload_id}`, { cache: "no-store" });
+            if (!pollResponse.ok) {
+              clearInterval(pollInterval);
+              setUploadState("error");
+              setUploadResult({ error: "Background scanning status check failed." });
+              return;
+            }
+            const pollData = await pollResponse.json();
+            if (pollData.analysis_state !== "pending") {
+              clearInterval(pollInterval);
+              setUploadState("done");
+              setUploadResult(pollData);
+            }
+          } catch (err) {
+            clearInterval(pollInterval);
+            setUploadState("error");
+            setUploadResult({ error: "Background scanning check connection failed." });
+          }
+        }, 2000);
+      } else {
+        setUploadState("done");
+        setUploadResult(data);
+      }
+    } catch (error) {
+      setUploadState("error");
+      setUploadResult({ error: "Upload failed." });
+    }
   }
 
   return (
@@ -1028,6 +1036,7 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
           )}
           {urlResult?.upload_id ? (
             <button
+              key="url-preview-btn"
               type="button"
               className="ui-btn previewButton"
               onClick={() => loadPreview(urlResult.upload_id, setUrlPreviewState, setUrlPreviewResult)}
@@ -1036,7 +1045,7 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
             </button>
           ) : null}
           {urlResult ? (
-            <div className="detailsToggle" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "16px" }}>
+            <div className="detailsToggle" key="url-details-toggle" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "16px" }}>
               <button
                 type="button"
                 className="ui-btn detailButton detailsToggleButton"
@@ -1167,9 +1176,13 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
               ) : null}
             </div>
           ) : null}
-          {renderStaticAnalysis(urlResult)}
+          {urlResult ? (
+            <div key="url-static-analysis">
+              {renderStaticAnalysis(urlResult)}
+            </div>
+          ) : null}
           {urlResult?.fingerprint ? (
-            <div className="fingerprintSummary">
+            <div className="fingerprintSummary" key="url-fingerprint">
               <h3>Fingerprint summary</h3>
               <p>
                 Claimed: <strong>{urlResult.fingerprint.claimed_content_type}</strong>
@@ -1186,7 +1199,7 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
             </div>
           ) : null}
           {urlPreviewResult || urlPreviewState !== "idle" ? (
-            <div className="fingerprintSummary">
+            <div className="fingerprintSummary" key="url-safe-preview">
               <h3>Safe preview</h3>
               <p>Preview state: <strong>{urlPreviewState}</strong></p>
               {urlPreviewResult?.preview_kind ? (
@@ -1233,7 +1246,7 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
             </span>
           </button>
           {(uploadState === "uploading" || uploadState === "scanning") && (
-            <div className="downloadProgressBarContainer" style={{
+            <div className="downloadProgressBarContainer" key="upload-loader" style={{
               marginTop: "20px",
               marginBottom: "20px",
               padding: "16px",
@@ -1274,6 +1287,7 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
           )}
           {uploadResult?.upload_id ? (
             <button
+              key="upload-preview-btn"
               type="button"
               className="ui-btn previewButton"
               onClick={() => loadPreview(uploadResult.upload_id, setUploadPreviewState, setUploadPreviewResult)}
@@ -1282,7 +1296,7 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
             </button>
           ) : null}
           {uploadResult ? (
-            <div className="detailsToggle" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "16px" }}>
+            <div className="detailsToggle" key="upload-details-toggle" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "16px" }}>
               <button
                 type="button"
                 className="ui-btn detailButton detailsToggleButton"
@@ -1305,9 +1319,13 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
               {uploadDetailsOpen ? <pre style={{ width: "100%" }}>{JSON.stringify(uploadResult, null, 2)}</pre> : null}
             </div>
           ) : null}
-          {renderStaticAnalysis(uploadResult)}
+          {uploadResult ? (
+            <div key="upload-static-analysis">
+              {renderStaticAnalysis(uploadResult)}
+            </div>
+          ) : null}
           {uploadResult?.fingerprint ? (
-            <div className="fingerprintSummary">
+            <div className="fingerprintSummary" key="upload-fingerprint">
               <h3>Fingerprint summary</h3>
               <p>
                 Claimed: <strong>{uploadResult.fingerprint.claimed_content_type}</strong>
@@ -1324,7 +1342,7 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
             </div>
           ) : null}
           {uploadPreviewResult || uploadPreviewState !== "idle" ? (
-            <div className="fingerprintSummary">
+            <div className="fingerprintSummary" key="upload-safe-preview">
               <h3>Safe preview</h3>
               <p>Preview state: <strong>{uploadPreviewState}</strong></p>
               {uploadPreviewResult?.preview_kind ? (

@@ -66,12 +66,37 @@ def generate_pdf_report(record: dict[str, Any], tz: str = "UTC") -> bytes:
     elif verdict == "malicious":
         verdict_title = "MALICIOUS / THREAT DETECTED"
         verdict_class = "badge-danger"
-        summary_text = (
-            "CRITICAL WARNING: Active threats or malicious behaviors have been detected "
-            "associated with this resource. SafeGate's security engines identified signature matches "
-            "or dangerous dynamic behaviors (such as evasion tactics or unauthorized network actions) "
-            "during runtime sandbox inspection. We strongly advise against executing or accessing this file."
-        )
+        zip_findings = static_analysis.get("zip_findings") or []
+        is_zip = str(record.get("original_filename") or "").lower().endswith(".zip") or record.get("content_type") == "application/zip"
+        if is_zip and zip_findings:
+            malicious_items = [item for item in zip_findings if item.get("verdict") == "malicious"]
+            if malicious_items:
+                first_item = malicious_items[0]
+                path = first_item.get("file_path", "Unknown")
+                alerts_val = first_item.get("alerts")
+                if isinstance(alerts_val, list):
+                    alerts_str = ", ".join(str(a) for a in alerts_val)
+                else:
+                    alerts_str = str(alerts_val or "threat signatures detected")
+                summary_text = (
+                    f"CRITICAL WARNING: SafeGate detected an active threat inside this compressed archive. "
+                    f"During on-demand scanning of individual file items, the file '{path}' was flagged as MALICIOUS "
+                    f"due to: {alerts_str}. Extraction or execution of files inside this archive is strongly discouraged."
+                )
+            else:
+                summary_text = (
+                    "CRITICAL WARNING: Active threats or malicious behaviors have been detected "
+                    "associated with this archive. SafeGate's security engines identified signature matches "
+                    "or dangerous dynamic behaviors during runtime sandbox inspection of its contents. "
+                    "We strongly advise against executing or accessing files from this archive."
+                )
+        else:
+            summary_text = (
+                "CRITICAL WARNING: Active threats or malicious behaviors have been detected "
+                "associated with this resource. SafeGate's security engines identified signature matches "
+                "or dangerous dynamic behaviors (such as evasion tactics or unauthorized network actions) "
+                "during runtime sandbox inspection. We strongly advise against executing or accessing this file."
+            )
     elif verdict == "suspicious":
         verdict_title = "SUSPICIOUS / USE WITH CAUTION"
         verdict_class = "badge-warning"
@@ -268,6 +293,53 @@ def generate_pdf_report(record: dict[str, Any], tz: str = "UTC") -> bytes:
         behavior_html += "</ul>"
     else:
         behavior_html = "<p class='no-behavior'>No suspicious runtime behaviors observed inside the sandbox container.</p>"
+
+    # Build ZIP findings table if they exist
+    zip_findings_html = ""
+    zip_findings = static_analysis.get("zip_findings")
+    if zip_findings:
+        zip_findings_html = """
+        <div class="card" style="margin-top: 15px;">
+            <h3 class="card-title">ZIP Archive Internal Scan Findings</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #e2e8f0; text-align: left;">
+                        <th style="padding: 6px; width: 45%; color: #64748b;">Internal File Path</th>
+                        <th style="padding: 6px; width: 15%; color: #64748b;">Verdict</th>
+                        <th style="padding: 6px; width: 40%; color: #64748b;">Details / Alerts</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        for item in zip_findings:
+            path = item.get("file_path", "Unknown")
+            verdict_val = item.get("verdict", "clean")
+            alerts_val = item.get("alerts")
+            
+            if isinstance(alerts_val, list):
+                alerts_str = ", ".join(str(a) for a in alerts_val)
+            else:
+                alerts_str = str(alerts_val or "No details recorded.")
+            
+            if verdict_val == "malicious":
+                badge_style = 'color: #b91c1c; background-color: #fee2e2; padding: 2px 6px; border-radius: 4px; font-weight: bold;'
+            elif verdict_val == "suspicious":
+                badge_style = 'color: #b45309; background-color: #fef3c7; padding: 2px 6px; border-radius: 4px; font-weight: bold;'
+            else:
+                badge_style = 'color: #047857; background-color: #d1fae5; padding: 2px 6px; border-radius: 4px; font-weight: bold;'
+                
+            zip_findings_html += f"""
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 6px; font-weight: 600; word-break: break-all;">{path}</td>
+                        <td style="padding: 6px;"><span style="{badge_style}">{verdict_val.upper()}</span></td>
+                        <td style="padding: 6px; color: #475569;">{alerts_str}</td>
+                    </tr>
+            """
+        zip_findings_html += """
+                </tbody>
+            </table>
+        </div>
+        """
 
     # HTML Template
     html_content = f"""
@@ -619,6 +691,8 @@ def generate_pdf_report(record: dict[str, Any], tz: str = "UTC") -> bytes:
             <h3 class="card-title">Top Observed Sandbox Behaviors</h3>
             {behavior_html}
         </div>
+
+        {zip_findings_html}
 
         <div class="footer">
             SafeGate Threat Detection Sandbox System &bull; Secured Container Sandbox Analysis Report &bull; Confident Security Verdict
