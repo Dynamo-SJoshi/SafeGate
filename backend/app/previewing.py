@@ -67,9 +67,14 @@ def build_preview(
             notes=["temporary-inline-preview"],
         )
 
-    if detected_content_type == "application/zip" or original_filename.lower().endswith(
-        (".zip", ".docx", ".xlsx", ".pptx")
-    ):
+    is_archive = (
+        detected_content_type in {"application/zip", "application/x-tar", "application/gzip"}
+        or original_filename.lower().endswith(
+            (".zip", ".docx", ".xlsx", ".pptx", ".tar", ".gz", ".tar.gz", ".tgz", ".war", ".jar", ".ear")
+        )
+        or detected_content_type.startswith("application/vnd.openxmlformats-officedocument.")
+    )
+    if is_archive:
         return _build_zip_like_preview(
             upload_id=upload_id,
             stored_path=stored_path,
@@ -139,17 +144,18 @@ def _build_zip_like_preview(
     detected_content_type: str,
 ) -> PreviewResult:
     try:
-        with zipfile.ZipFile(stored_path) as archive:
+        from app.archive_utils import ArchiveReader
+        with ArchiveReader(stored_path, detected_content_type, original_filename) as archive:
             names = archive.namelist()
             items = []
             for name in names[:120]:
                 info = archive.getinfo(name)
                 items.append(
                     {
-                        "name": name,
+                        "name": info.filename,
                         "size": info.file_size,
                         "compressed_size": info.compress_size,
-                        "is_directory": name.endswith("/"),
+                        "is_directory": info.is_dir(),
                     }
                 )
 
@@ -157,9 +163,9 @@ def _build_zip_like_preview(
             preview_kind = "archive-listing"
             summary = "SafeGate shows the archive contents and treats nested executables as suspicious."
 
-            if _looks_like_office_package(names):
+            if archive._archive_type == "zip" and _looks_like_office_package(names):
                 preview_kind = "office-package"
-                office_text = _extract_office_text(archive)
+                office_text = _extract_office_text(archive._zip_archive)
                 if office_text:
                     notes.append("office-text-extracted")
                     return PreviewResult(
@@ -182,15 +188,18 @@ def _build_zip_like_preview(
                 items=items,
                 notes=notes,
             )
-    except zipfile.BadZipFile:
+    except Exception as e:
+        import logging
+        logger = logging.getLogger("safegate-preview")
+        logger.error(f"Failed to generate archive preview: {e}")
         return PreviewResult(
             upload_id=upload_id,
             preview_kind="binary-summary",
             preview_title=f"Preview for {original_filename}",
-            summary="SafeGate expected a ZIP-based file but the structure was invalid, so it shows a safe binary summary.",
+            summary="SafeGate expected a valid archive but the structure was invalid, so it shows a safe binary summary.",
             content_type=detected_content_type,
             text=_binary_summary(stored_path),
-            notes=["zip-structure-invalid"],
+            notes=["archive-structure-invalid"],
         )
 
 

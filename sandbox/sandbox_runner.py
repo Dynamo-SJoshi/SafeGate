@@ -35,6 +35,14 @@ def detect_script_type_from_content(stored_path: Path) -> str | None:
         return ".pdf"
     if header.startswith(b"PK\x03\x04") or header.startswith(b"PK\x05\x06"):
         return ".zip"
+    if header.startswith(b"\x1f\x8b"):
+        return ".gz"
+    if len(header) >= 262 and (header[257:262] == b"ustar" or header[257:262] == b"ustar\x00"):
+        return ".tar"
+    if header.startswith(b"Rar!\x1a\x07\x00") or header.startswith(b"Rar!\x1a\x07\x01\x00"):
+        return ".rar"
+    if header.startswith(b"7z\xbc\xaf\x27\x1c"):
+        return ".7z"
 
     # Binary vs Text heuristic checks
     # 1. Plain text scripts (py, ps1, js, sh, html) never contain null bytes
@@ -212,7 +220,9 @@ def run_in_sandbox(upload_id: str, stored_path: Path, filename: str) -> dict[str
     # Check if the content suggests a different supported extension (content-based override for security evasion protection)
     detected_ext = detect_script_type_from_content(stored_path)
     supported_extensions = {".py", ".ps1", ".sh", ".js", ".exe", ".msi", ".html", ".bin"}
-    if detected_ext in supported_extensions:
+    all_overrideable_extensions = supported_extensions | {".zip", ".tar", ".gz", ".rar", ".7z"}
+    
+    if detected_ext in all_overrideable_extensions:
         if detected_ext != ext:
             logger.info(f"Extension override: file claimed to be {ext} but content suggests {detected_ext}")
             ext = detected_ext

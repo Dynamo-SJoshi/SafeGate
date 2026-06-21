@@ -390,23 +390,27 @@ def preview_zip_file(upload_id: str, file_path: str):
     detected_content_type = str(record["detected_content_type"])
     original_filename = str(record["original_filename"])
 
-    is_zip = detected_content_type == "application/zip" or original_filename.lower().endswith(
-        (".zip", ".docx", ".xlsx", ".pptx")
-    ) or detected_content_type.startswith("application/vnd.openxmlformats-officedocument.")
+    is_archive = (
+        detected_content_type in {"application/zip", "application/x-tar", "application/gzip"}
+        or original_filename.lower().endswith(
+            (".zip", ".docx", ".xlsx", ".pptx", ".tar", ".gz", ".tar.gz", ".tgz", ".war", ".jar", ".ear")
+        )
+        or detected_content_type.startswith("application/vnd.openxmlformats-officedocument.")
+    )
 
-    if not is_zip:
-        raise HTTPException(status_code=400, detail="This file type is not a ZIP archive.")
+    if not is_archive:
+        raise HTTPException(status_code=400, detail="This file type is not a supported archive.")
 
     fingerprint = dict(record.get("fingerprint") or {})
     if detected_content_type == "application/zip-bomb" or "zip-bomb-detected" in fingerprint.get("indicators", []):
         raise HTTPException(status_code=400, detail="Decompression is disabled: this archive is flagged as a ZIP bomb.")
 
-    import zipfile
+    from app.archive_utils import ArchiveReader
     import html
     import shutil
 
     try:
-        with zipfile.ZipFile(stored_path) as archive:
+        with ArchiveReader(stored_path, detected_content_type, original_filename) as archive:
             norm_path = file_path.replace("\\", "/").lstrip("/")
             try:
                 info = archive.getinfo(norm_path)
@@ -558,8 +562,8 @@ def preview_zip_file(upload_id: str, file_path: str):
                     "size_bytes": info.file_size,
                     "scan_results": scan_results
                 }
-    except zipfile.BadZipFile:
-        raise HTTPException(status_code=400, detail="Invalid ZIP archive structure.")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid archive structure or extraction failure: {str(e)}")
 
 
 

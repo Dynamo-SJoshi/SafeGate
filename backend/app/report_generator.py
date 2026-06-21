@@ -636,7 +636,7 @@ def generate_pdf_report(record: dict[str, Any], tz: str = "UTC") -> bytes:
         </div>
 
         <div class="section-summary">
-            <h2 class="section-title">Executive Summary (Layman Friendly)</h2>
+            <h2 class="section-title">Executive Summary </h2>
             <p class="summary-body">{summary_text}</p>
         </div>
 

@@ -69,6 +69,9 @@ def fingerprint_file(file_path: Path, claimed_filename: str, claimed_content_typ
 
 def normalize_claimed_type(filename: str, content_type: str) -> str:
     ext = Path(filename).suffix.lower()
+    if filename.lower().endswith(".tar.gz"):
+        ext = ".tar.gz"
+
     extension_map = {
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
@@ -87,6 +90,13 @@ def normalize_claimed_type(filename: str, content_type: str) -> str:
         ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         ".exe": "application/x-msdownload",
         ".msi": "application/x-msi",
+        ".tar": "application/x-tar",
+        ".gz": "application/gzip",
+        ".tar.gz": "application/gzip",
+        ".tgz": "application/gzip",
+        ".war": "application/zip",
+        ".jar": "application/zip",
+        ".ear": "application/zip",
     }
 
     claimed_from_extension = extension_map.get(ext)
@@ -131,6 +141,10 @@ def detect_file_type(
         indicators.append("zip-container")
         return detect_zip_based_type(file_path, indicators)
 
+    if header.startswith(b"7z\xbc\xaf\x27\x1c"):
+        indicators.append("7z-signature")
+        return "application/x-7z-compressed", "application/x-7z-compressed", indicators, "high"
+
     if header.startswith(b"Rar!\x1a\x07\x00") or header.startswith(b"Rar!\x1a\x07\x01\x00"):
         indicators.append("rar-signature")
         return "application/vnd.rar", "application/vnd.rar", indicators, "high"
@@ -138,6 +152,10 @@ def detect_file_type(
     if header.startswith(b"\x1f\x8b"):
         indicators.append("gzip-signature")
         return "application/gzip", "application/gzip", indicators, "high"
+
+    if len(header) >= 262 and (header[257:262] == b"ustar" or header[257:262] == b"ustar\x00"):
+        indicators.append("tar-ustar-magic")
+        return "application/x-tar", "application/x-tar", indicators, "high"
 
     if header.startswith(b"MZ"):
         indicators.append("dos-mz-header")
