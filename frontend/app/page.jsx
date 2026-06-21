@@ -531,20 +531,23 @@ function renderZipItemScanResults(scanResults) {
   );
 }
 
-function ZipExplorer({ items, uploadId, onParentRefresh, explorerState, setExplorerState }) {
-  const tree = explorerState.tree;
-  const expandedDirs = explorerState.expandedDirs;
-  const selectedFile = explorerState.selectedFile;
-  const fileContent = explorerState.fileContent;
-  const loadingFile = explorerState.loadingFile;
-  const fileError = explorerState.fileError;
+function ZipExplorer({ items, uploadId, onParentRefresh, explorerState = {}, setExplorerState = () => {} }) {
+  const tree = explorerState?.tree;
+  const expandedDirs = explorerState?.expandedDirs || {};
+  const selectedFile = explorerState?.selectedFile;
+  const fileContent = explorerState?.fileContent;
+  const loadingFile = explorerState?.loadingFile;
+  const fileError = explorerState?.fileError;
 
   useEffect(() => {
-    if (items) {
-      setExplorerState((prev) => ({
-        ...prev,
-        tree: buildTree(items),
-      }));
+    if (items && typeof setExplorerState === "function") {
+      setExplorerState((prev) => {
+        const safePrev = prev || {};
+        return {
+          ...safePrev,
+          tree: buildTree(items),
+        };
+      });
     }
   }, [items, setExplorerState]);
 
@@ -830,7 +833,16 @@ export default function HomePage() {
   const [uploadDetailsOpen, setUploadDetailsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState(null);
-  const [zipExplorerState, setZipExplorerState] = useState({
+  const [uploadZipExplorerState, setUploadZipExplorerState] = useState({
+    tree: null,
+    expandedDirs: {},
+    selectedFile: null,
+    fileContent: null,
+    loadingFile: false,
+    fileError: null,
+  });
+
+  const [urlZipExplorerState, setUrlZipExplorerState] = useState({
     tree: null,
     expandedDirs: {},
     selectedFile: null,
@@ -842,8 +854,8 @@ export default function HomePage() {
   useEffect(() => {
     const uploadId = uploadPreviewResult?.upload_id;
     if (!uploadId) return;
-    writeZipExplorerSession(uploadId, zipExplorerState);
-  }, [uploadPreviewResult?.upload_id, zipExplorerState]);
+    writeZipExplorerSession(uploadId, uploadZipExplorerState);
+  }, [uploadPreviewResult?.upload_id, uploadZipExplorerState]);
 
   useEffect(() => {
     const uploadId = uploadPreviewResult?.upload_id;
@@ -851,9 +863,43 @@ export default function HomePage() {
 
     const cachedState = readZipExplorerSession(uploadId);
     if (cachedState) {
-      setZipExplorerState(cachedState);
+      setUploadZipExplorerState(cachedState);
+    } else {
+      setUploadZipExplorerState({
+        tree: null,
+        expandedDirs: {},
+        selectedFile: null,
+        fileContent: null,
+        loadingFile: false,
+        fileError: null,
+      });
     }
   }, [uploadPreviewResult?.upload_id]);
+
+  useEffect(() => {
+    const uploadId = urlPreviewResult?.upload_id;
+    if (!uploadId) return;
+    writeZipExplorerSession(uploadId, urlZipExplorerState);
+  }, [urlPreviewResult?.upload_id, urlZipExplorerState]);
+
+  useEffect(() => {
+    const uploadId = urlPreviewResult?.upload_id;
+    if (!uploadId) return;
+
+    const cachedState = readZipExplorerSession(uploadId);
+    if (cachedState) {
+      setUrlZipExplorerState(cachedState);
+    } else {
+      setUrlZipExplorerState({
+        tree: null,
+        expandedDirs: {},
+        selectedFile: null,
+        fileContent: null,
+        loadingFile: false,
+        fileError: null,
+      });
+    }
+  }, [urlPreviewResult?.upload_id]);
 
   console.log("HomePage render. uploadResult ID:", uploadResult?.upload_id, "uploadPreviewResult:", !!uploadPreviewResult, "urlResult ID:", urlResult?.upload_id, "urlPreviewResult:", !!urlPreviewResult);
 
@@ -1361,7 +1407,13 @@ export default function HomePage() {
                   </a>
                 </p>
               ) : null}
-              <PreviewPanel preview={urlPreviewResult} previewState={urlPreviewState} onParentRefresh={() => refreshUploadDetails(urlResult?.upload_id)} />
+              <PreviewPanel
+                preview={urlPreviewResult}
+                previewState={urlPreviewState}
+                onParentRefresh={() => refreshUploadDetails(urlResult?.upload_id)}
+                explorerState={urlZipExplorerState}
+                setExplorerState={setUrlZipExplorerState}
+              />
             </div>
           ) : null}
         </form>
@@ -1509,8 +1561,8 @@ export default function HomePage() {
                 preview={uploadPreviewResult}
                 previewState={uploadPreviewState}
                 onParentRefresh={() => refreshUploadDetails(uploadResult?.upload_id)}
-                explorerState={zipExplorerState}
-                setExplorerState={setZipExplorerState}
+                explorerState={uploadZipExplorerState}
+                setExplorerState={setUploadZipExplorerState}
               />
             </div>
           ) : null}
