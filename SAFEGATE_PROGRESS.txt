@@ -413,3 +413,38 @@ On-Demand ZIP Item Scanner:
 - Rendered security verdicts and sandbox execution logs inside the zip preview split-pane using aligned dashboard styling.
 - Enabled text content preview for PowerShell (`.ps1`) script files.
 
+2026-06-18 02:40:12 +05:30
+--------------------------
+
+ZIP Nested Scans, Threat Propagation, and Content-Type Fixes:
+- Implemented ZIP inner threat propagation:
+  - Scanned files within zip archives propagate their security verdicts (`malicious` or `suspicious`) directly to the parent archive record.
+  - Added an "unverified" warning badge for newly uploaded ZIP files, instructing users to inspect inner files.
+- Resolved ZIP content-type dynamic sandbox overrides and fixed Next.js 15 routing parameters warning in the console.
+
+2026-06-18 03:15:20 +05:30
+--------------------------
+
+Gemini AI Zip Item Explanation and UTF-8 BOM Handling:
+- Implemented Gemini AI Assistant for ZIP file items:
+  - Added backend route `/api/ai/explain-zip-item` and frontend `GeminiZipItemAssistant` component.
+  - Allows users to ask Gemini for a detailed security explanation/chat regarding scan results of a specific file inside an archive.
+- Resolved false-positive signature mismatches caused by UTF-8 BOM (Byte Order Mark) markers at the start of scripting files.
+- Supported HTML sandbox execution within the Playwright container.
+
+2026-06-18 03:39:37 +05:30
+--------------------------
+
+Nested Renderer Layout and Reset Fixes:
+- Fixed a bug where the zip explorer preview pane reset unexpectedly on parent rerenders.
+- Refactored nested sub-components (such as preview/tree renderers) to top-level scope inside `frontend/app/page.jsx`.
+- Placed explicit `type="button"` attributes and wrapper `key` properties to prevent nested rendering unmount issues.
+
+2026-06-21 14:22:19 +05:30
+--------------------------
+
+ZIP Explorer Session Persistence:
+- Integrated `sessionStorage` session persistence (`safegate.zipExplorerSession:`) to retain the active state of the ZIP explorer.
+- Caches the current file tree structure, expanded directories, and loaded file preview selection across page refreshes or UI toggles, providing a seamless user experience.
+
+

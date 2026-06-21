@@ -6,6 +6,27 @@ import GeminiAssistant from "./GeminiAssistant";
 import GeminiZipItemAssistant from "./GeminiZipItemAssistant";
 import SecurityReport from "./SecurityReport";
 
+const ZIP_EXPLORER_SESSION_PREFIX = "safegate.zipExplorerSession:";
+
+function readZipExplorerSession(uploadId) {
+  if (typeof window === "undefined" || !uploadId) return null;
+  try {
+    const raw = window.sessionStorage.getItem(`${ZIP_EXPLORER_SESSION_PREFIX}${uploadId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeZipExplorerSession(uploadId, state) {
+  if (typeof window === "undefined" || !uploadId) return;
+  try {
+    window.sessionStorage.setItem(`${ZIP_EXPLORER_SESSION_PREFIX}${uploadId}`, JSON.stringify(state));
+  } catch {
+    // Ignore storage failures and fall back to in-memory state.
+  }
+}
+
 function renderStaticAnalysis(result) {
   if (!result || result.error || result.detail) return null;
   const state = result.analysis_state || "pending";
@@ -437,56 +458,69 @@ function renderZipItemScanResults(scanResults) {
   );
 }
 
-function ZipExplorer({ items, uploadId, onParentRefresh }) {
-  const [tree, setTree] = useState(null);
-  const [expandedDirs, setExpandedDirs] = useState({});
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [fileContent, setFileContent] = useState(null);
-  const [loadingFile, setLoadingFile] = useState(false);
-  const [fileError, setFileError] = useState(null);
-
-  console.log("ZipExplorer render, selectedFile:", selectedFile?.fullName, "items count:", items?.length);
+function ZipExplorer({ items, uploadId, onParentRefresh, explorerState, setExplorerState }) {
+  const tree = explorerState.tree;
+  const expandedDirs = explorerState.expandedDirs;
+  const selectedFile = explorerState.selectedFile;
+  const fileContent = explorerState.fileContent;
+  const loadingFile = explorerState.loadingFile;
+  const fileError = explorerState.fileError;
 
   useEffect(() => {
-    console.log("ZipExplorer mounted for uploadId:", uploadId);
     if (items) {
-      setTree(buildTree(items));
+      setExplorerState((prev) => ({
+        ...prev,
+        tree: buildTree(items),
+      }));
     }
-    return () => {
-      console.log("ZipExplorer UNMOUNTED");
-    };
-  }, [items]);
+  }, [items, setExplorerState]);
 
   const toggleDir = (fullName) => {
-    setExpandedDirs((prev) => ({
+    setExplorerState((prev) => ({
       ...prev,
-      [fullName]: prev[fullName] === false ? true : false,
+      expandedDirs: {
+        ...prev.expandedDirs,
+        [fullName]: prev.expandedDirs[fullName] === false ? true : false,
+      },
     }));
   };
 
-  const handleSelectFile = async (node, isPreviewable) => {
-    setSelectedFile(node);
-    setFileContent(null);
-    setFileError(null);
+  const handleSelectFile = async (node) => {
+    setExplorerState((prev) => ({
+      ...prev,
+      selectedFile: node,
+      fileContent: null,
+      fileError: null,
+      loadingFile: true,
+    }));
 
-    setLoadingFile(true);
     try {
       const res = await fetch(`/api/preview/${uploadId}/zip-file?file_path=${encodeURIComponent(node.fullName)}`);
       const data = await res.json();
       if (!res.ok) {
-        setFileError(data.error || "Failed to load preview.");
-      } else {
-        setFileContent(data);
-        if (data.scan_results && (data.scan_results.verdict === "malicious" || data.scan_results.verdict === "suspicious")) {
-          if (onParentRefresh) {
-            onParentRefresh();
-          }
-        }
+        setExplorerState((prev) => ({
+          ...prev,
+          fileError: data.error || "Failed to load preview.",
+          loadingFile: false,
+        }));
+        return;
+      }
+
+      setExplorerState((prev) => ({
+        ...prev,
+        fileContent: data,
+        loadingFile: false,
+      }));
+
+      if (data.scan_results && (data.scan_results.verdict === "malicious" || data.scan_results.verdict === "suspicious")) {
+        onParentRefresh?.();
       }
     } catch (err) {
-      setFileError("Network error: failed to fetch file content.");
-    } finally {
-      setLoadingFile(false);
+      setExplorerState((prev) => ({
+        ...prev,
+        fileError: "Network error: failed to fetch file content.",
+        loadingFile: false,
+      }));
     }
   };
 
@@ -504,7 +538,7 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
         <div className="zipFileTree">
           <TreeNode
             node={tree}
-            onSelectFile={handleSelectFile}
+            onSelectFile={(node) => handleSelectFile(node)}
             selectedFile={selectedFile}
             expandedDirs={expandedDirs}
             toggleDir={toggleDir}
@@ -599,7 +633,7 @@ function ZipExplorer({ items, uploadId, onParentRefresh }) {
   );
 }
 
-function PreviewPanel({ preview, previewState, onParentRefresh }) {
+function PreviewPanel({ preview, previewState, onParentRefresh, explorerState, setExplorerState }) {
   if (previewState === "loading") {
     return <p>Generating safe preview...</p>;
   }
@@ -659,7 +693,13 @@ function PreviewPanel({ preview, previewState, onParentRefresh }) {
       <div className="previewStructured">
         <h4>{preview?.preview_title ?? "Safe preview"}</h4>
         <p>{preview?.summary ?? "Preview not loaded yet."}</p>
-        <ZipExplorer items={preview.items} uploadId={preview.upload_id} onParentRefresh={onParentRefresh} />
+        <ZipExplorer
+          items={preview.items}
+          uploadId={preview.upload_id}
+          onParentRefresh={onParentRefresh}
+          explorerState={explorerState}
+          setExplorerState={setExplorerState}
+        />
       </div>
     );
   }
@@ -708,6 +748,30 @@ export default function HomePage() {
   const [uploadDetailsOpen, setUploadDetailsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState(null);
+  const [zipExplorerState, setZipExplorerState] = useState({
+    tree: null,
+    expandedDirs: {},
+    selectedFile: null,
+    fileContent: null,
+    loadingFile: false,
+    fileError: null,
+  });
+
+  useEffect(() => {
+    const uploadId = uploadPreviewResult?.upload_id;
+    if (!uploadId) return;
+    writeZipExplorerSession(uploadId, zipExplorerState);
+  }, [uploadPreviewResult?.upload_id, zipExplorerState]);
+
+  useEffect(() => {
+    const uploadId = uploadPreviewResult?.upload_id;
+    if (!uploadId) return;
+
+    const cachedState = readZipExplorerSession(uploadId);
+    if (cachedState) {
+      setZipExplorerState(cachedState);
+    }
+  }, [uploadPreviewResult?.upload_id]);
 
   console.log("HomePage render. uploadResult ID:", uploadResult?.upload_id, "uploadPreviewResult:", !!uploadPreviewResult, "urlResult ID:", urlResult?.upload_id, "urlPreviewResult:", !!urlPreviewResult);
 
@@ -1359,7 +1423,13 @@ export default function HomePage() {
                   </a>
                 </p>
               ) : null}
-              <PreviewPanel preview={uploadPreviewResult} previewState={uploadPreviewState} onParentRefresh={() => refreshUploadDetails(uploadResult?.upload_id)} />
+              <PreviewPanel
+                preview={uploadPreviewResult}
+                previewState={uploadPreviewState}
+                onParentRefresh={() => refreshUploadDetails(uploadResult?.upload_id)}
+                explorerState={zipExplorerState}
+                setExplorerState={setZipExplorerState}
+              />
             </div>
           ) : null}
         </form>
