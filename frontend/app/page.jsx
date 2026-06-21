@@ -52,12 +52,81 @@ function renderStaticAnalysis(result) {
     badgeLabel = "Malicious";
   }
 
+  const indicators = result.fingerprint?.indicators || [];
+  const hasDoubleExt = indicators.includes("double-extension-detected");
+  const hasZipSlip = indicators.includes("zip-slip-detected");
+  const hasZipBomb = indicators.includes("zip-bomb-detected");
+
   const exifMetadata = exif.status === "success" && exif.metadata ? exif.metadata : null;
   const exifKeys = exifMetadata ? Object.keys(exifMetadata).slice(0, 15) : [];
 
   return (
     <div className="fingerprintSummary">
       <h3>Analysis Verdict</h3>
+
+      {hasDoubleExt && (
+        <div style={{
+          border: "1px solid rgba(245, 158, 11, 0.4)",
+          background: "rgba(245, 158, 11, 0.08)",
+          padding: "12px",
+          borderRadius: "12px",
+          marginBottom: "16px",
+          display: "flex",
+          gap: "10px",
+          alignItems: "flex-start"
+        }}>
+          <span style={{ fontSize: "1.25rem", color: "#f59e0b" }}>⚠️</span>
+          <div>
+            <strong style={{ color: "#f59e0b", display: "block" }}>Double Extension Alert</strong>
+            <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
+              This file has a double extension (e.g. <code>.pdf.exe</code>), which is a common trick used to mask executable files as safe documents. Use caution before opening this file.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {hasZipSlip && (
+        <div style={{
+          border: "1px solid rgba(239, 68, 68, 0.4)",
+          background: "rgba(239, 68, 68, 0.08)",
+          padding: "12px",
+          borderRadius: "12px",
+          marginBottom: "16px",
+          display: "flex",
+          gap: "10px",
+          alignItems: "flex-start"
+        }}>
+          <span style={{ fontSize: "1.25rem", color: "#ef4444" }}>⚠️</span>
+          <div>
+            <strong style={{ color: "#ef4444", display: "block" }}>Zip Slip Vulnerability Payload Detected</strong>
+            <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
+              One or more file paths inside this archive contain directory traversal sequences (like <code>../</code>) targeting system folders. Unpacking this archive on vulnerable systems is extremely dangerous.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {hasZipBomb && (
+        <div style={{
+          border: "1px solid rgba(239, 68, 68, 0.4)",
+          background: "rgba(239, 68, 68, 0.08)",
+          padding: "12px",
+          borderRadius: "12px",
+          marginBottom: "16px",
+          display: "flex",
+          gap: "10px",
+          alignItems: "flex-start"
+        }}>
+          <span style={{ fontSize: "1.25rem", color: "#ef4444" }}>⚠️</span>
+          <div>
+            <strong style={{ color: "#ef4444", display: "block" }}>ZIP Bomb Threat Detected</strong>
+            <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
+              This archive exhibits extreme compression ratios or size indicators consistent with a ZIP Bomb. Decompression is blocked to protect the host system from Denial of Service (DoS) / crash.
+            </span>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "16px" }}>
         <span
           className="badge"

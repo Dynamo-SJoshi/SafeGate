@@ -277,7 +277,12 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
 
     if clamav_res.get("verdict") == "infected" or sandbox_res.get("verdict") == "malicious":
         analysis_state = "malicious"
-    elif yara_res.get("verdict") == "suspicious" or match_status == "mismatch" or sandbox_res.get("verdict") == "suspicious":
+    elif (
+        yara_res.get("verdict") == "suspicious"
+        or match_status == "mismatch"
+        or sandbox_res.get("verdict") == "suspicious"
+        or "double-extension-detected" in fingerprint.get("indicators", [])
+    ):
         analysis_state = "suspicious"
     else:
         # Check if it is a ZIP archive

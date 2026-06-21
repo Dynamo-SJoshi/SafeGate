@@ -55,6 +55,9 @@ def fingerprint_file(file_path: Path, claimed_filename: str, claimed_content_typ
     else:
         match_status = "match" if claimed_normalized == detected_type else "mismatch"
 
+    if check_double_extension(claimed_filename):
+        indicators.append("double-extension-detected")
+
     return FingerprintResult(
         claimed_filename=claimed_filename,
         claimed_extension=extension or "unknown",
@@ -65,6 +68,31 @@ def fingerprint_file(file_path: Path, claimed_filename: str, claimed_content_typ
         confidence=confidence,
         indicators=indicators,
     )
+
+
+def check_double_extension(filename: str) -> bool:
+    parts = filename.split(".")
+    if len(parts) < 3:
+        return False
+    
+    decoy_ext = "." + parts[-2].lower()
+    actual_ext = "." + parts[-1].lower()
+    
+    decoy_extensions = {
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", 
+        ".txt", ".rtf", ".jpg", ".jpeg", ".png", ".gif", ".mp3", ".mp4", 
+        ".zip", ".tar", ".gz", ".7z", ".rar"
+    }
+    
+    executable_extensions = {
+        ".exe", ".msi", ".bat", ".cmd", ".vbs", ".ps1", ".js", 
+        ".scr", ".pif", ".lnk", ".wsf", ".hta", ".vbe", ".jse", ".reg"
+    }
+    
+    if decoy_ext in decoy_extensions and actual_ext in executable_extensions:
+        return True
+        
+    return False
 
 
 def normalize_claimed_type(filename: str, content_type: str) -> str:

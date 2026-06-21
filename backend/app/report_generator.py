@@ -63,6 +63,24 @@ def generate_pdf_report(record: dict[str, Any], tz: str = "UTC") -> bytes:
             "or excessively large uncompressed file structure. Decompressing this archive poses a severe threat of crash or "
             "instability to the execution host. SafeGate has blocked further analysis and skipped secondary scanning."
         )
+    elif "zip-slip-detected" in fingerprint.get("indicators", []):
+        verdict_title = "MALICIOUS / ZIP SLIP THREAT DETECTED"
+        verdict_class = "badge-danger"
+        summary_text = (
+            "CRITICAL WARNING: This archive contains a Zip Slip / Directory Traversal payload. "
+            "SafeGate detected nested files with traversal paths (e.g. starting with '../' or absolute paths) "
+            "designed to write files outside the extraction directory. If unpacked on a vulnerable server, this "
+            "could overwrite system configuration files or application scripts, leading to Remote Code Execution (RCE)."
+        )
+    elif "double-extension-detected" in fingerprint.get("indicators", []):
+        verdict_title = "SUSPICIOUS / DOUBLE EXTENSION DETECTED"
+        verdict_class = "badge-warning"
+        summary_text = (
+            "ATTENTION: High-risk characteristics were identified in this resource. "
+            "SafeGate detected a double extension payload (e.g. decoy extension followed by an executable extension). "
+            "This technique is commonly used to deceive users into running executables disguised as documents. "
+            "Please proceed with extreme caution."
+        )
     elif verdict == "malicious":
         verdict_title = "MALICIOUS / THREAT DETECTED"
         verdict_class = "badge-danger"
@@ -788,7 +806,21 @@ def get_report_data(record: dict[str, Any]) -> dict[str, Any]:
             overall_score = max(0, int((meta_score + net_score) / 5))
             overall_score = min(34, overall_score)
 
-        if verdict == "malicious":
+        if "zip-slip-detected" in fingerprint.get("indicators", []):
+            summary_text = (
+                "CRITICAL WARNING: This archive contains a Zip Slip / Directory Traversal payload. "
+                "SafeGate detected nested files with traversal paths (e.g. starting with '../' or absolute paths) "
+                "designed to write files outside the extraction directory. If unpacked on a vulnerable server, this "
+                "could overwrite system configuration files or application scripts, leading to Remote Code Execution (RCE)."
+            )
+        elif "double-extension-detected" in fingerprint.get("indicators", []):
+            summary_text = (
+                "ATTENTION: High-risk characteristics were identified in this resource. "
+                "SafeGate detected a double extension payload (e.g. decoy extension followed by an executable extension). "
+                "This technique is commonly used to deceive users into running executables disguised as documents. "
+                "Please proceed with extreme caution."
+            )
+        elif verdict == "malicious":
             summary_text = (
                 "WARNING: Critical security risks were detected. Active threat signatures (from antivirus "
                 "or security rules) were matched, or highly suspicious sandbox activities (such as network calls "

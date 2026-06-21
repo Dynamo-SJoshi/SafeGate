@@ -447,4 +447,22 @@ ZIP Explorer Session Persistence:
 - Integrated `sessionStorage` session persistence (`safegate.zipExplorerSession:`) to retain the active state of the ZIP explorer.
 - Caches the current file tree structure, expanded directories, and loaded file preview selection across page refreshes or UI toggles, providing a seamless user experience.
 
+2026-06-21 17:14:31 +05:30
+--------------------------
+
+Comprehensive Compressed Archive Support:
+- Expanded archive functionality to support `.tar`, `.gz`, `.war`, `.jar`, and `.7z` formats in addition to standard `.zip` files.
+- Implemented `backend/app/archive_utils.py` containing modular utilities for extracting, traversing, and reading files from different compression formats using python library handlers (`tarfile`, `gzip`, `zipfile`, `py7zr`).
+- Integrated these formats into the backend signature checkers, preview generation endpoints, and dynamic sandbox runner.
+
+2026-06-21 17:41:12 +05:30
+--------------------------
+
+Zip Slip Directory Traversal Protection:
+- Implemented static Zip Slip detection to protect host and worker environments from directory traversal vulnerabilities:
+  - Scans file headers of uploaded archives for malicious pathways containing relative directory traversal segments (e.g. `..` or leading `/`).
+  - Sets the threat index of any archive containing traversal patterns directly to suspicious or malicious.
+- Propagated traversal alert flags through backend database records and Next.js routes to show visible warning indicators on the user dashboard.
+
+
 
