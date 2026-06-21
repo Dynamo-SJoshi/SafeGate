@@ -155,6 +155,15 @@ def detect_file_type(
 
     if len(header) >= 262 and (header[257:262] == b"ustar" or header[257:262] == b"ustar\x00"):
         indicators.append("tar-ustar-magic")
+        try:
+            import tarfile
+            with tarfile.open(file_path, "r") as archive:
+                for name in archive.getnames():
+                    if is_zip_slip_path(name):
+                        indicators.append("zip-slip-detected")
+                        break
+        except Exception:
+            pass
         return "application/x-tar", "application/x-tar", indicators, "high"
 
     if header.startswith(b"MZ"):
@@ -197,9 +206,28 @@ def detect_file_type(
     return "unknown", "application/octet-stream", indicators, "low"
 
 
+def is_zip_slip_path(path_str: str) -> bool:
+    normalized = path_str.replace("\\", "/")
+    if "../" in normalized or normalized.startswith("../"):
+        return True
+    if normalized.startswith("/"):
+        return True
+    if len(normalized) >= 2 and normalized[0].isalpha() and normalized[1] == ":":
+        return True
+    return False
+
+
 def detect_zip_based_type(file_path: Path, indicators: list[str]) -> tuple[str, str, list[str], str]:
     try:
         with zipfile.ZipFile(file_path) as archive:
+            # Check for Zip Slip threat
+            has_zip_slip = False
+            for name in archive.namelist():
+                if is_zip_slip_path(name):
+                    has_zip_slip = True
+                    break
+            if has_zip_slip:
+                indicators.append("zip-slip-detected")
             # 1. In-Memory Header Inspection for Zip Bombs
             total_uncompressed_size = 0
             has_huge_file = False

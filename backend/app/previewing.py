@@ -148,6 +148,7 @@ def _build_zip_like_preview(
         with ArchiveReader(stored_path, detected_content_type, original_filename) as archive:
             names = archive.namelist()
             items = []
+            from app.fingerprinting import is_zip_slip_path
             for name in names[:120]:
                 info = archive.getinfo(name)
                 items.append(
@@ -156,6 +157,7 @@ def _build_zip_like_preview(
                         "size": info.file_size,
                         "compressed_size": info.compress_size,
                         "is_directory": info.is_dir(),
+                        "is_potential_zip_slip": is_zip_slip_path(info.filename),
                     }
                 )
 

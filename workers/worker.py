@@ -206,6 +206,38 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
         )
         return get_upload_record(upload_id)
 
+    elif "zip-slip-detected" in fingerprint.get("indicators", []):
+        logger.info(f"Worker skipping scan: ZIP Slip threat detected for {upload_id}")
+        static_analysis = {
+            "zip_slip_detection": {
+                "verdict": "malicious",
+                "details": "ZIP Slip / Directory Traversal threat detected: One or more files inside the archive contain directory traversal path sequences (e.g. '../'). Extraction on a vulnerable system could lead to arbitrary file overwrite and RCE."
+            },
+            "clamav": {"verdict": "skipped", "details": "Scan skipped for safety: ZIP Slip threat detected."},
+            "yara": {"verdict": "skipped", "details": "Scan skipped for safety: ZIP Slip threat detected."},
+            "exiftool": {"status": "skipped", "metadata": {}},
+            "sandbox": {"verdict": "skipped", "reason": "Scan skipped for safety: ZIP Slip threat detected.", "executed": False}
+        }
+        save_upload_record(
+            upload_id=upload_id,
+            original_filename=str(record["original_filename"]),
+            stored_filename=stored_path.name,
+            content_type=str(record["content_type"]),
+            size_bytes=int(record["size_bytes"]),
+            sha256=str(record["sha256"]),
+            fingerprint=fingerprint,
+            analysis_state="malicious",
+            source_url=record.get("source_url"),
+            source_kind=str(record["source_kind"]),
+            source_state=str(record["source_state"]),
+            selected_candidate_url=record.get("selected_candidate_url"),
+            candidate_urls=record.get("candidate_urls"),
+            client_ip=record.get("client_ip"),
+            static_analysis=static_analysis,
+            candidate_details=record.get("candidate_details"),
+        )
+        return get_upload_record(upload_id)
+
     # 2. Run the actual analyzers (isolated where possible)
     if ENABLE_CLAMAV:
         logger.info(f"Running ClamAV scan on: {stored_path.name}")

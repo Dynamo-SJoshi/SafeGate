@@ -426,6 +426,69 @@ def preview_zip_file(upload_id: str, file_path: str):
                     "scan_results": None
                 }
 
+            # Check for Zip Slip / path traversal threat
+            is_zip_slip = False
+            normalized_path = norm_path.replace("\\", "/")
+            if "../" in normalized_path or normalized_path.startswith("../") or normalized_path.startswith("/") or (len(normalized_path) >= 2 and normalized_path[0].isalpha() and normalized_path[1] == ":"):
+                is_zip_slip = True
+
+            if is_zip_slip:
+                scan_results = {
+                    "verdict": "malicious",
+                    "clamav": {"verdict": "infected", "details": "Flagged by SafeGate Path Analyzer: Potential Zip Slip / Directory Traversal attempt detected in archive file path."},
+                    "yara": {"verdict": "clean", "details": "YARA scan skipped: Path analyzer already flagged threat."},
+                    "exiftool": {"status": "skipped", "details": "ExifTool skipped: Path analyzer already flagged threat."},
+                    "sandbox": {
+                        "executed": False,
+                        "verdict": "malicious",
+                        "behavior_alerts": ["Zip Slip / Path Traversal Attempt: File path targets parent directories (../)."],
+                        "reason": "Dynamic execution skipped because path contains directory traversal sequences.",
+                        "logs": "No logs: Dynamic sandboxing refused to run path-traversal payload."
+                    }
+                }
+                
+                # Update parent DB record to malicious if not already
+                current_state = record.get("analysis_state", "unverified")
+                if current_state != "malicious":
+                    parent_static = dict(record.get("static_analysis") or {})
+                    if "zip_findings" not in parent_static:
+                        parent_static["zip_findings"] = []
+                    
+                    existing_paths = [f.get("file_path") for f in parent_static["zip_findings"]]
+                    if norm_path not in existing_paths:
+                        parent_static["zip_findings"].append({
+                            "file_path": norm_path,
+                            "verdict": "malicious",
+                            "alerts": ["Zip Slip / Directory Traversal Pattern Detected in path."]
+                        })
+                    
+                    save_upload_record(
+                        upload_id=upload_id,
+                        original_filename=str(record["original_filename"]),
+                        stored_filename=str(record["stored_filename"]),
+                        content_type=str(record["content_type"]),
+                        size_bytes=int(record["size_bytes"]),
+                        sha256=str(record["sha256"]),
+                        fingerprint=dict(record["fingerprint"]),
+                        analysis_state="malicious",
+                        source_url=record.get("source_url"),
+                        source_kind=str(record["source_kind"]),
+                        source_state=str(record["source_state"]),
+                        selected_candidate_url=record.get("selected_candidate_url"),
+                        candidate_urls=record.get("candidate_urls"),
+                        client_ip=record.get("client_ip"),
+                        static_analysis=parent_static,
+                        candidate_details=record.get("candidate_details"),
+                    )
+
+                return {
+                    "file_path": file_path,
+                    "content": "Directory traversal payload detected inside path names.",
+                    "is_binary": True,
+                    "size_bytes": info.file_size,
+                    "scan_results": scan_results
+                }
+
             # 1. Extract file temporarily for security scans
             suffix = Path(norm_path).suffix
             temp_scan_file = UPLOAD_ROOT / f"zip_temp_{upload_id}_{uuid4().hex}{suffix}"
@@ -663,6 +726,18 @@ def _analyze_and_store_file(
             "yara": {"verdict": "skipped", "details": "Scan skipped for safety: ZIP bomb detected."},
             "exiftool": {"status": "skipped", "metadata": {}},
             "sandbox": {"verdict": "skipped", "reason": "Scan skipped for safety: ZIP bomb detected.", "executed": False}
+        }
+    elif "zip-slip-detected" in fingerprint_dict.get("indicators", []):
+        analysis_state = "malicious"
+        static_analysis = {
+            "zip_slip_detection": {
+                "verdict": "malicious",
+                "details": "ZIP Slip / Directory Traversal threat detected: One or more files inside the archive contain directory traversal path sequences (e.g. '../'). Extraction on a vulnerable system could lead to arbitrary file overwrite and RCE."
+            },
+            "clamav": {"verdict": "skipped", "details": "Scan skipped for safety: ZIP Slip threat detected."},
+            "yara": {"verdict": "skipped", "details": "Scan skipped for safety: ZIP Slip threat detected."},
+            "exiftool": {"status": "skipped", "metadata": {}},
+            "sandbox": {"verdict": "skipped", "reason": "Scan skipped for safety: ZIP Slip threat detected.", "executed": False}
         }
     else:
         analysis_state = "pending"

@@ -229,6 +229,7 @@ function buildTree(items) {
           children: {},
           size: isLast ? item.size : null,
           compressed_size: isLast ? item.compressed_size : null,
+          isPotentialZipSlip: isLast ? item.is_potential_zip_slip : false,
         };
       }
       current = current.children[part];
@@ -298,18 +299,21 @@ function TreeNode({ node, onSelectFile, selectedFile, expandedDirs, toggleDir })
   const ext = "." + node.name.split(".").pop().toLowerCase();
   const previewableExts = new Set([".txt", ".py", ".js", ".json", ".sh", ".ini", ".md", ".csv", ".yaml", ".yml", ".xml", ".html", ".css", ".sql", ".conf", ".cfg", ".ps1"]);
   const isPreviewable = previewableExts.has(ext);
+  const isPotentialZipSlip = node.isPotentialZipSlip;
 
   return (
     <div
-      className={`tree-file ${isSelected ? "selected" : ""} ${isPreviewable ? "previewable" : "binary"}`}
+      className={`tree-file ${isSelected ? "selected" : ""} ${isPotentialZipSlip ? "zip-slip-threat" : (isPreviewable ? "previewable" : "binary")}`}
       onClick={() => onSelectFile(node, isPreviewable)}
+      style={isPotentialZipSlip ? { border: "1px solid rgba(255, 75, 75, 0.4)", background: "rgba(255, 75, 75, 0.1)" } : {}}
     >
-      <span className="file-icon">{isPreviewable ? "📄" : "⚙️"}</span>
-      <span className="file-name">{node.name}</span>
+      <span className="file-icon">{isPotentialZipSlip ? "⚠️" : (isPreviewable ? "📄" : "⚙️")}</span>
+      <span className="file-name" style={isPotentialZipSlip ? { color: "#ff8888", fontWeight: "bold" } : {}}>{node.name}</span>
       {node.size !== null && node.size !== undefined && (
         <span className="file-size">({(node.size / 1024).toFixed(1)} KB)</span>
       )}
-      <button type="button" className="view-btn">{isPreviewable ? "View" : "Inspect"}</button>
+      {isPotentialZipSlip && <span className="zip-slip-badge" style={{ background: "#ff4444", color: "#fff", padding: "2px 6px", fontSize: "10px", borderRadius: "3px", marginLeft: "6px", fontWeight: "bold" }}>ZIP SLIP THREAT</span>}
+      <button type="button" className="view-btn">{isPotentialZipSlip ? "Inspect Threat" : (isPreviewable ? "View" : "Inspect")}</button>
     </div>
   );
 }
@@ -596,6 +600,15 @@ function ZipExplorer({ items, uploadId, onParentRefresh, explorerState, setExplo
               <p style={{ color: "var(--bad)" }}>{fileError}</p>
             ) : (
               <>
+                {selectedFile.isPotentialZipSlip && (
+                  <div className="binary-warning" style={{ marginBottom: "16px", borderColor: "rgba(255, 75, 75, 0.6)", background: "rgba(255, 75, 75, 0.08)" }}>
+                    <span className="binary-warning-icon" style={{ color: "#ff4444" }}>⚠️</span>
+                    <span className="binary-warning-title" style={{ color: "#ff8888" }}>Zip Slip / Directory Traversal Threat Detected</span>
+                    <span className="binary-warning-desc" style={{ color: "#ffbaba" }}>
+                      This file path uses directory traversal sequences (like <code>../</code>) to target locations outside the extraction boundary. If extracted by a vulnerable system, this could overwrite critical application or system files, enabling Remote Code Execution (RCE).
+                    </span>
+                  </div>
+                )}
                 {!isSelectedFilePreviewable ? (
                   <div className="binary-warning" style={{ marginBottom: "16px" }}>
                     <span className="binary-warning-icon">⚠️</span>
