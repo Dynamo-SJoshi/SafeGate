@@ -252,6 +252,19 @@ def _compact_analysis(analysis: dict[str, Any]) -> str:
         "static_analysis",
     }
     compact = {key: analysis.get(key) for key in relevant_keys if key in analysis}
+    
+    # Truncate raw file text to avoid prompt pollution and cut-off copying
+    if "text" in compact and isinstance(compact["text"], str):
+        if len(compact["text"]) > 1000:
+            compact["text"] = compact["text"][:1000] + "... [truncated]"
+            
+    if "preview" in compact and isinstance(compact["preview"], dict):
+        preview_copy = dict(compact["preview"])
+        if "text" in preview_copy and isinstance(preview_copy["text"], str):
+            if len(preview_copy["text"]) > 1000:
+                preview_copy["text"] = preview_copy["text"][:1000] + "... [truncated]"
+        compact["preview"] = preview_copy
+
     text = json.dumps(compact, ensure_ascii=False, indent=2)
     return text[:MAX_ANALYSIS_CHARS]
 
@@ -260,16 +273,30 @@ def _normalize_two_line_answer(text: str) -> str:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     if not lines:
         return ""
-    normalized = []
-    for index, line in enumerate(lines[:2]):
-        if index == 0 and not line.lower().startswith("summary:"):
-            line = f"Summary: {line}"
-        if index == 1 and not line.lower().startswith("advice:"):
-            line = f"Advice: {line}"
-        normalized.append(line)
-    if len(normalized) == 1:
-        normalized.append("Advice: More analysis is needed before SafeGate can be more specific.")
-    return "\n".join(normalized[:2])
+        
+    summary_line = ""
+    advice_line = ""
+    
+    for line in lines:
+        if line.lower().startswith("summary:"):
+            summary_line = line
+        elif line.lower().startswith("advice:"):
+            advice_line = line
+            
+    # Fallback to index-based parsing if the model did not output expected prefixes
+    if not summary_line or not advice_line:
+        normalized = []
+        for index, line in enumerate(lines[:2]):
+            if index == 0 and not line.lower().startswith("summary:"):
+                line = f"Summary: {line}"
+            if index == 1 and not line.lower().startswith("advice:"):
+                line = f"Advice: {line}"
+            normalized.append(line)
+        if len(normalized) == 1:
+            normalized.append("Advice: More analysis is needed before SafeGate can be more specific.")
+        return "\n".join(normalized[:2])
+        
+    return f"{summary_line}\n{advice_line}"
 
 
 def _local_summary_line(analysis: dict[str, Any], question: str | None = None) -> str:
