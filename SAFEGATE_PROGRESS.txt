@@ -464,5 +464,52 @@ Zip Slip Directory Traversal Protection:
   - Sets the threat index of any archive containing traversal patterns directly to suspicious or malicious.
 - Propagated traversal alert flags through backend database records and Next.js routes to show visible warning indicators on the user dashboard.
 
+2026-06-21 17:52:17 +05:30
+--------------------------
+
+Double Extension Spoofing Detection and UI Verdict Mappings:
+- Implemented static double extension detection inside `backend/app/fingerprinting.py` (e.g. flagging `document.pdf.exe` or `report.txt.bat`).
+- Automatically triggers a double extension mismatch warning, updating parent archive and report verdicts.
+- Mapped double extension detection warning alerts directly to Next.js dashboard UI elements.
+- Fixed a Next.js `TypeError` related to empty files in the archive preview panel.
+
+2026-06-22 17:42:54 +05:30
+--------------------------
+
+ZIP Explorer State Containment:
+- Fixed a React race condition in `frontend/app/page.jsx` where selecting a file inside the archive explorer would trigger layout resets.
+- Improved tree-node caching and self-contained selected states inside the `ZipExplorer` component hierarchy.
+
+2026-06-22 18:53:06 +05:30
+--------------------------
+
+Render Free Tier Wake-up Self-Healing:
+- Implemented automated self-healing active health polling in Next.js to wake up asleep Render free tier backends.
+- Removed obsolete milestones and home page developer info sections to streamline the onboarding experience.
+
+2026-06-22 20:26:54 +05:30
+--------------------------
+
+Premium Error Toasts and Client-Size Limits:
+- Integrated premium 10-second auto-dismissing toast notifications for failed/unscanned files and polling errors.
+- Enforced strict client-side file size warnings to prevent UI memory bloating and page timeouts.
+
+2026-06-23 02:39:47 +05:30
+--------------------------
+
+Render Cold Start Stability and Local Launcher:
+- Added a 10-second server-side timeout to backend health checks to prevent API lockup during container cold starts.
+- Disabled form inputs and displayed an overlay loader during backend wake-up stages.
+- Added a manual force-wake action link if the server-side wake-up takes longer than normal.
+- Created `safegate_launcher.html`, a static standalone local landing file for immediate developer access.
+
+2026-06-23 03:10:05 +05:30
+--------------------------
+
+Memory Injection Static Signature Checks:
+- Added `memory_injection_apis` rules to YARA scanner rule signatures (`analyzers/rules.yar`).
+- Scans script and binary code blocks for Win32 API sequences associated with fileless shellcode/memory injection (e.g. `VirtualAlloc`, `WriteProcessMemory`, `CreateRemoteThread`).
+
+
 
 
