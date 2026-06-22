@@ -531,25 +531,42 @@ function renderZipItemScanResults(scanResults) {
   );
 }
 
-function ZipExplorer({ items, uploadId, onParentRefresh, explorerState = {}, setExplorerState = () => {} }) {
-  const tree = explorerState?.tree;
-  const expandedDirs = explorerState?.expandedDirs || {};
-  const selectedFile = explorerState?.selectedFile;
-  const fileContent = explorerState?.fileContent;
-  const loadingFile = explorerState?.loadingFile;
-  const fileError = explorerState?.fileError;
+function ZipExplorer({ items, uploadId, onParentRefresh }) {
+  const [explorerState, setExplorerState] = useState(() => {
+    const cached = readZipExplorerSession(uploadId);
+    return cached || {
+      tree: null,
+      expandedDirs: {},
+      selectedFile: null,
+      fileContent: null,
+      loadingFile: false,
+      fileError: null,
+    };
+  });
 
+  const tree = explorerState.tree;
+  const expandedDirs = explorerState.expandedDirs;
+  const selectedFile = explorerState.selectedFile;
+  const fileContent = explorerState.fileContent;
+  const loadingFile = explorerState.loadingFile;
+  const fileError = explorerState.fileError;
+
+  // Persist to session storage whenever state changes
   useEffect(() => {
-    if (items && typeof setExplorerState === "function") {
-      setExplorerState((prev) => {
-        const safePrev = prev || {};
-        return {
-          ...safePrev,
-          tree: buildTree(items),
-        };
-      });
+    if (uploadId) {
+      writeZipExplorerSession(uploadId, explorerState);
     }
-  }, [items, setExplorerState]);
+  }, [uploadId, explorerState]);
+
+  // Build tree structure from files
+  useEffect(() => {
+    if (items) {
+      setExplorerState((prev) => ({
+        ...prev,
+        tree: buildTree(items),
+      }));
+    }
+  }, [items]);
 
   const toggleDir = (fullName) => {
     setExplorerState((prev) => ({
@@ -718,7 +735,7 @@ function ZipExplorer({ items, uploadId, onParentRefresh, explorerState = {}, set
   );
 }
 
-function PreviewPanel({ preview, previewState, onParentRefresh, explorerState, setExplorerState }) {
+function PreviewPanel({ preview, previewState, onParentRefresh }) {
   if (previewState === "loading") {
     return <p>Generating safe preview...</p>;
   }
@@ -779,11 +796,10 @@ function PreviewPanel({ preview, previewState, onParentRefresh, explorerState, s
         <h4>{preview?.preview_title ?? "Safe preview"}</h4>
         <p>{preview?.summary ?? "Preview not loaded yet."}</p>
         <ZipExplorer
+          key={preview.upload_id}
           items={preview.items}
           uploadId={preview.upload_id}
           onParentRefresh={onParentRefresh}
-          explorerState={explorerState}
-          setExplorerState={setExplorerState}
         />
       </div>
     );
@@ -833,73 +849,6 @@ export default function HomePage() {
   const [uploadDetailsOpen, setUploadDetailsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState(null);
-  const [uploadZipExplorerState, setUploadZipExplorerState] = useState({
-    tree: null,
-    expandedDirs: {},
-    selectedFile: null,
-    fileContent: null,
-    loadingFile: false,
-    fileError: null,
-  });
-
-  const [urlZipExplorerState, setUrlZipExplorerState] = useState({
-    tree: null,
-    expandedDirs: {},
-    selectedFile: null,
-    fileContent: null,
-    loadingFile: false,
-    fileError: null,
-  });
-
-  useEffect(() => {
-    const uploadId = uploadPreviewResult?.upload_id;
-    if (!uploadId) return;
-    writeZipExplorerSession(uploadId, uploadZipExplorerState);
-  }, [uploadPreviewResult?.upload_id, uploadZipExplorerState]);
-
-  useEffect(() => {
-    const uploadId = uploadPreviewResult?.upload_id;
-    if (!uploadId) return;
-
-    const cachedState = readZipExplorerSession(uploadId);
-    if (cachedState) {
-      setUploadZipExplorerState(cachedState);
-    } else {
-      setUploadZipExplorerState({
-        tree: null,
-        expandedDirs: {},
-        selectedFile: null,
-        fileContent: null,
-        loadingFile: false,
-        fileError: null,
-      });
-    }
-  }, [uploadPreviewResult?.upload_id]);
-
-  useEffect(() => {
-    const uploadId = urlPreviewResult?.upload_id;
-    if (!uploadId) return;
-    writeZipExplorerSession(uploadId, urlZipExplorerState);
-  }, [urlPreviewResult?.upload_id, urlZipExplorerState]);
-
-  useEffect(() => {
-    const uploadId = urlPreviewResult?.upload_id;
-    if (!uploadId) return;
-
-    const cachedState = readZipExplorerSession(uploadId);
-    if (cachedState) {
-      setUrlZipExplorerState(cachedState);
-    } else {
-      setUrlZipExplorerState({
-        tree: null,
-        expandedDirs: {},
-        selectedFile: null,
-        fileContent: null,
-        loadingFile: false,
-        fileError: null,
-      });
-    }
-  }, [urlPreviewResult?.upload_id]);
 
   console.log("HomePage render. uploadResult ID:", uploadResult?.upload_id, "uploadPreviewResult:", !!uploadPreviewResult, "urlResult ID:", urlResult?.upload_id, "urlPreviewResult:", !!urlPreviewResult);
 
@@ -1411,8 +1360,6 @@ export default function HomePage() {
                 preview={urlPreviewResult}
                 previewState={urlPreviewState}
                 onParentRefresh={() => refreshUploadDetails(urlResult?.upload_id)}
-                explorerState={urlZipExplorerState}
-                setExplorerState={setUrlZipExplorerState}
               />
             </div>
           ) : null}
@@ -1561,8 +1508,6 @@ export default function HomePage() {
                 preview={uploadPreviewResult}
                 previewState={uploadPreviewState}
                 onParentRefresh={() => refreshUploadDetails(uploadResult?.upload_id)}
-                explorerState={uploadZipExplorerState}
-                setExplorerState={setUploadZipExplorerState}
               />
             </div>
           ) : null}
