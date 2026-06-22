@@ -849,6 +849,30 @@ export default function HomePage() {
   const [uploadDetailsOpen, setUploadDetailsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState(null);
+  const [toast, setToast] = useState({ show: false, message: "" });
+
+  function triggerToast(message) {
+    let msg = "An unexpected error occurred.";
+    if (typeof message === "string") {
+      msg = message;
+    } else if (message && typeof message.error === "string") {
+      msg = message.error;
+    } else if (message && typeof message.detail === "string") {
+      msg = message.detail;
+    } else if (message && Array.isArray(message.detail)) {
+      msg = message.detail.map((d) => d.msg).join(", ");
+    }
+    setToast({ show: true, message: msg });
+  }
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => {
+        setToast({ show: false, message: "" });
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
 
   console.log("HomePage render. uploadResult ID:", uploadResult?.upload_id, "uploadPreviewResult:", !!uploadPreviewResult, "urlResult ID:", urlResult?.upload_id, "urlPreviewResult:", !!urlPreviewResult);
 
@@ -941,6 +965,7 @@ export default function HomePage() {
     if (!normalizedUrl) {
       setUrlState("missing-url");
       setUrlResult({ error: "Please paste a download link first." });
+      triggerToast("Please paste a download link first.");
       return;
     }
 
@@ -965,6 +990,7 @@ export default function HomePage() {
       if (!response.ok) {
         setUrlState("error");
         setUrlResult(data);
+        triggerToast(data);
         return;
       }
 
@@ -973,32 +999,34 @@ export default function HomePage() {
         setUrlResult(data);
         const pollInterval = setInterval(async () => {
           try {
-            const pollResponse = await fetch(`/api/upload/${data.upload_id}`, { cache: "no-store" });
-            if (!pollResponse.ok) {
-              clearInterval(pollInterval);
-              setUrlState("error");
-              setUrlResult({ error: "Background scanning status check failed." });
-              return;
-            }
-            const pollData = await pollResponse.json();
-            if (pollData.analysis_state !== "pending") {
-              clearInterval(pollInterval);
-              setUrlState("done");
-              setUrlResult(pollData);
-              setAnalysisHistory((previousHistory) => {
-                const nextEntry = {
-                  inspected_url: normalizedUrl,
-                  analyzed_at: new Date().toISOString(),
-                  ...pollData,
-                };
-                const deduped = previousHistory.filter((entry) => entry.inspected_url !== normalizedUrl);
-                return [nextEntry, ...deduped].slice(0, 8);
-              });
-            }
+             const pollResponse = await fetch(`/api/upload/${data.upload_id}`, { cache: "no-store" });
+             if (!pollResponse.ok) {
+               clearInterval(pollInterval);
+               setUrlState("error");
+               setUrlResult({ error: "Background scanning status check failed." });
+               triggerToast("Background scanning status check failed.");
+               return;
+             }
+             const pollData = await pollResponse.json();
+             if (pollData.analysis_state !== "pending") {
+               clearInterval(pollInterval);
+               setUrlState("done");
+               setUrlResult(pollData);
+               setAnalysisHistory((previousHistory) => {
+                 const nextEntry = {
+                   inspected_url: normalizedUrl,
+                   analyzed_at: new Date().toISOString(),
+                   ...pollData,
+                 };
+                 const deduped = previousHistory.filter((entry) => entry.inspected_url !== normalizedUrl);
+                 return [nextEntry, ...deduped].slice(0, 8);
+               });
+             }
           } catch (err) {
             clearInterval(pollInterval);
             setUrlState("error");
             setUrlResult({ error: "Background scanning check connection failed." });
+            triggerToast("Background scanning check connection failed.");
           }
         }, 2000);
       } else {
@@ -1017,6 +1045,7 @@ export default function HomePage() {
     } catch (error) {
       setUrlState("error");
       setUrlResult({ error: "URL analysis failed." });
+      triggerToast("URL analysis failed.");
     }
   }
 
@@ -1074,6 +1103,7 @@ export default function HomePage() {
     if (!selectedFile) {
       setUploadState("missing-file");
       setUploadResult({ error: "Please choose a file first." });
+      triggerToast("Please choose a file first.");
       return;
     }
 
@@ -1097,6 +1127,7 @@ export default function HomePage() {
       if (!response.ok) {
         setUploadState("error");
         setUploadResult(data);
+        triggerToast(data);
         return;
       }
 
@@ -1110,6 +1141,7 @@ export default function HomePage() {
               clearInterval(pollInterval);
               setUploadState("error");
               setUploadResult({ error: "Background scanning status check failed." });
+              triggerToast("Background scanning status check failed.");
               return;
             }
             const pollData = await pollResponse.json();
@@ -1122,6 +1154,7 @@ export default function HomePage() {
             clearInterval(pollInterval);
             setUploadState("error");
             setUploadResult({ error: "Background scanning check connection failed." });
+            triggerToast("Background scanning check connection failed.");
           }
         }, 2000);
       } else {
@@ -1131,6 +1164,7 @@ export default function HomePage() {
     } catch (error) {
       setUploadState("error");
       setUploadResult({ error: "Upload failed." });
+      triggerToast("Upload failed.");
     }
   }
 
@@ -1604,6 +1638,60 @@ export default function HomePage() {
             setSelectedReportId(null);
           }} 
         />
+      )}
+      {toast.show && (
+        <div style={{
+          position: "fixed",
+          bottom: "24px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          backgroundColor: "rgba(15, 23, 42, 0.95)",
+          backdropFilter: "blur(8px)",
+          border: "1px solid rgba(239, 68, 68, 0.35)",
+          color: "#fff",
+          padding: "14px 20px",
+          borderRadius: "12px",
+          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(239, 68, 68, 0.1)",
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          gap: "16px",
+          maxWidth: "500px",
+          width: "90%",
+          animation: "fadeInUp 0.3s ease-out",
+        }}>
+          <span style={{ fontSize: "1.25rem", color: "#ef4444", flexShrink: 0 }}>⚠️</span>
+          <div style={{ flexGrow: 1, fontSize: "0.9rem", lineHeight: "1.4", color: "#f8fafc" }}>
+            <strong style={{ color: "#f87171", display: "block", fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "2px" }}>Scan Failed</strong>
+            {toast.message}
+          </div>
+          <button 
+            type="button"
+            onClick={() => setToast({ show: false, message: "" })}
+            style={{
+              background: "rgba(255, 255, 255, 0.08)",
+              border: "none",
+              color: "#cbd5e1",
+              cursor: "pointer",
+              padding: "6px 12px",
+              borderRadius: "6px",
+              fontSize: "0.8rem",
+              fontWeight: "600",
+              transition: "all 0.2s ease",
+              outline: "none",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = "rgba(239, 68, 68, 0.2)";
+              e.target.style.color = "#fff";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = "rgba(255, 255, 255, 0.08)";
+              e.target.style.color = "#cbd5e1";
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
       )}
     </main>
   );
