@@ -868,6 +868,9 @@ export default function HomePage() {
 
   useEffect(() => {
     let cancelled = false;
+    let pollInterval = null;
+    let slowInterval = null;
+    let attempts = 0;
 
     async function checkHealth() {
       try {
@@ -875,21 +878,60 @@ export default function HomePage() {
         const data = await response.json();
 
         if (!cancelled) {
-          setHealth(response.ok ? "online" : "error");
-          setDetails(data);
+          if (response.ok) {
+            setHealth("online");
+            setDetails(data);
+            // Clear fast polling once online
+            if (pollInterval) {
+              clearInterval(pollInterval);
+              pollInterval = null;
+            }
+            // Start slow periodic monitoring every 60s
+            if (!slowInterval) {
+              slowInterval = setInterval(checkHealth, 60000);
+            }
+          } else {
+            handleFailure();
+          }
         }
       } catch (error) {
         if (!cancelled) {
-          setHealth("offline");
-          setDetails({ error: "Unable to reach backend health endpoint." });
+          handleFailure();
         }
       }
     }
 
+    function handleFailure() {
+      if (cancelled) return;
+      attempts++;
+      if (attempts <= 15) {
+        // Assume waking up on Render free tier
+        setHealth("waking");
+        setDetails({ error: "Waiting for backend service to spin up on Render..." });
+        // Start fast polling every 5s if not already running
+        if (!pollInterval) {
+          pollInterval = setInterval(checkHealth, 5000);
+        }
+      } else {
+        // After 15 attempts (~75s), assume truly offline
+        setHealth("offline");
+        setDetails({ error: "Unable to reach backend health endpoint." });
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
+        // Start a slower retry interval (every 30s)
+        pollInterval = setInterval(checkHealth, 30000);
+      }
+    }
+
+    // Run initial health check immediately
     checkHealth();
 
     return () => {
       cancelled = true;
+      if (pollInterval) clearInterval(pollInterval);
+      if (slowInterval) clearInterval(slowInterval);
     };
   }, []);
 
@@ -1104,8 +1146,15 @@ export default function HomePage() {
 
         <div className="statusCard">
           <div className="statusHeader" style={{ marginBottom: 0 }}>
-            <span className={`dot ${health}`} />
-            <span>Backend status: {health}</span>
+            <span className={`dot ${health === "checking" || health === "waking" ? "warn" : health}`} />
+            <span>
+              Backend status:{" "}
+              {health === "waking"
+                ? "waking up scanner service..."
+                : health === "checking"
+                ? "checking..."
+                : health}
+            </span>
           </div>
         </div>
 
