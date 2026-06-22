@@ -849,7 +849,21 @@ export default function HomePage() {
   const [uploadDetailsOpen, setUploadDetailsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState(null);
+  const [backendUrl, setBackendUrl] = useState("");
   const [toast, setToast] = useState({ show: false, message: "" });
+
+  useEffect(() => {
+    async function fetchBackendUrl() {
+      try {
+        const response = await fetch("/api/backend-url");
+        const data = await response.json();
+        setBackendUrl(data.url);
+      } catch (err) {
+        // ignore
+      }
+    }
+    fetchBackendUrl();
+  }, []);
 
   function triggerToast(message) {
     console.log("triggerToast called with:", message);
@@ -1200,16 +1214,26 @@ export default function HomePage() {
         </p>
 
         <div className="statusCard">
-          <div className="statusHeader" style={{ marginBottom: 0 }}>
-            <span className={`dot ${health === "checking" || health === "waking" ? "warn" : health}`} />
-            <span>
-              Backend status:{" "}
-              {health === "waking"
-                ? "waking up scanner service..."
-                : health === "checking"
-                ? "checking..."
-                : health}
-            </span>
+          <div className="statusHeader" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "8px", marginBottom: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span className={`dot ${health === "checking" || health === "waking" ? "warn" : health}`} />
+              <span>
+                Backend status:{" "}
+                {health === "waking"
+                  ? "waking up scanner service..."
+                  : health === "checking"
+                  ? "checking..."
+                  : health}
+              </span>
+            </div>
+            {health === "waking" && backendUrl && (
+              <span style={{ fontSize: "0.85rem", color: "var(--muted)", marginLeft: "20px" }}>
+                Render's free tier sleeps after 15m of inactivity. If it's taking too long,{" "}
+                <a href={`${backendUrl}/health`} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+                  click here to force wake it up
+                </a>.
+              </span>
+            )}
           </div>
         </div>
 
@@ -1222,15 +1246,18 @@ export default function HomePage() {
             Paste a suspicious download link
             <input
               type="url"
-              placeholder="https://example.com/download/file"
+              placeholder={health === "online" ? "https://example.com/download/file" : "Backend offline, waiting..."}
               value={urlInput}
               onChange={(event) => setUrlInput(event.target.value)}
+              disabled={health !== "online"}
             />
           </label>
-          <button type="submit" className="uiverseButton analyzeButton">
+          <button type="submit" className="uiverseButton analyzeButton" disabled={health !== "online"}>
             <span className="uiverseButtonLg">
               <span className="uiverseButtonSl" />
-              <span className="uiverseButtonText">Analyze Link</span>
+              <span className="uiverseButtonText">
+                {health === "online" ? "Analyze Link" : "Waiting for backend..."}
+              </span>
             </span>
           </button>
           {(urlState === "analyzing" || urlState === "scanning") && (
@@ -1487,12 +1514,15 @@ export default function HomePage() {
             <input
               type="file"
               onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+              disabled={health !== "online"}
             />
           </label>
-          <button type="submit" className="uiverseButton analyzeButton">
+          <button type="submit" className="uiverseButton analyzeButton" disabled={health !== "online"}>
             <span className="uiverseButtonLg">
               <span className="uiverseButtonSl" />
-              <span className="uiverseButtonText">Upload File</span>
+              <span className="uiverseButtonText">
+                {health === "online" ? "Upload File" : "Waiting for backend..."}
+              </span>
             </span>
           </button>
           {(uploadState === "uploading" || uploadState === "scanning") && (
