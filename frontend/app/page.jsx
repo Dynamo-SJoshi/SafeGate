@@ -852,6 +852,7 @@ export default function HomePage() {
   const [toast, setToast] = useState({ show: false, message: "" });
 
   function triggerToast(message) {
+    console.log("triggerToast called with:", message);
     let msg = "An unexpected error occurred.";
     if (typeof message === "string") {
       msg = message;
@@ -862,6 +863,7 @@ export default function HomePage() {
     } else if (message && Array.isArray(message.detail)) {
       msg = message.detail.map((d) => d.msg).join(", ");
     }
+    console.log("Resolved toast message:", msg);
     setToast({ show: true, message: msg });
   }
 
@@ -1010,17 +1012,23 @@ export default function HomePage() {
              const pollData = await pollResponse.json();
              if (pollData.analysis_state !== "pending") {
                clearInterval(pollInterval);
-               setUrlState("done");
-               setUrlResult(pollData);
-               setAnalysisHistory((previousHistory) => {
-                 const nextEntry = {
-                   inspected_url: normalizedUrl,
-                   analyzed_at: new Date().toISOString(),
-                   ...pollData,
-                 };
-                 const deduped = previousHistory.filter((entry) => entry.inspected_url !== normalizedUrl);
-                 return [nextEntry, ...deduped].slice(0, 8);
-               });
+               if (pollData.analysis_state === "failed" || pollData.analysis_state === "error") {
+                 setUrlState("error");
+                 setUrlResult(pollData);
+                 triggerToast(pollData.static_analysis?.error || pollData.error || "Analysis failed.");
+               } else {
+                 setUrlState("done");
+                 setUrlResult(pollData);
+                 setAnalysisHistory((previousHistory) => {
+                   const nextEntry = {
+                     inspected_url: normalizedUrl,
+                     analyzed_at: new Date().toISOString(),
+                     ...pollData,
+                   };
+                   const deduped = previousHistory.filter((entry) => entry.inspected_url !== normalizedUrl);
+                   return [nextEntry, ...deduped].slice(0, 8);
+                 });
+               }
              }
           } catch (err) {
             clearInterval(pollInterval);
@@ -1107,6 +1115,13 @@ export default function HomePage() {
       return;
     }
 
+    if (selectedFile.size > 50 * 1024 * 1024) {
+      setUploadState("error");
+      setUploadResult({ error: "File exceeds the 50 MB MVP upload limit." });
+      triggerToast("File exceeds the 50 MB MVP upload limit.");
+      return;
+    }
+
     setUploadState("uploading");
     setUploadResult(null);
     setUploadPreviewState("idle");
@@ -1145,11 +1160,17 @@ export default function HomePage() {
               return;
             }
             const pollData = await pollResponse.json();
-            if (pollData.analysis_state !== "pending") {
-              clearInterval(pollInterval);
-              setUploadState("done");
-              setUploadResult(pollData);
-            }
+             if (pollData.analysis_state !== "pending") {
+               clearInterval(pollInterval);
+               if (pollData.analysis_state === "failed" || pollData.analysis_state === "error") {
+                 setUploadState("error");
+                 setUploadResult(pollData);
+                 triggerToast(pollData.static_analysis?.error || pollData.error || "Analysis failed.");
+               } else {
+                 setUploadState("done");
+                 setUploadResult(pollData);
+               }
+             }
           } catch (err) {
             clearInterval(pollInterval);
             setUploadState("error");
