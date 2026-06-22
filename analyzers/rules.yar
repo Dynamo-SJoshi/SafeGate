@@ -101,3 +101,19 @@ rule hidden_pe_inside_archive {
     condition:
         $mz at 0 and $pe_sig
 }
+
+rule memory_injection_apis {
+    meta:
+        description = "Detects Win32 memory allocation and remote thread execution API calls often used for fileless memory injection."
+        author = "SafeGate"
+    strings:
+        $api1 = "VirtualAlloc" ascii nocase
+        $api2 = "VirtualProtect" ascii nocase
+        $api3 = "CreateRemoteThread" ascii nocase
+        $api4 = "WriteProcessMemory" ascii nocase
+        $api5 = "QueueUserAPC" ascii nocase
+        $api6 = "RtlCreateUserThread" ascii nocase
+        $api7 = "OpenProcess" ascii nocase
+    condition:
+        any of them
+}
