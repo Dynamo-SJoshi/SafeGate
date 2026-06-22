@@ -1645,6 +1645,48 @@ export default function HomePage() {
               />
             </div>
           ) : null}
+          {uploadResult?.error === "File exceeds the 50 MB MVP upload limit." && 
+           typeof window !== "undefined" && 
+           (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && (
+            <div style={{
+              marginTop: "20px",
+              padding: "18px",
+              background: "rgba(59, 130, 246, 0.05)",
+              border: "1px solid rgba(59, 130, 246, 0.25)",
+              borderRadius: "12px",
+              textAlign: "left",
+              fontSize: "0.88rem",
+              lineHeight: "1.5",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)"
+            }}>
+              <strong style={{ color: "#f87171", display: "block", marginBottom: "10px", fontSize: "0.95rem" }}>
+                ⚠️ CRITICAL SAFETY NOTE: Do NOT open or execute this file before testing it!
+              </strong>
+              <span style={{ color: "var(--muted)", display: "block", marginBottom: "12px" }}>
+                Because you are running SafeGate locally, you can scan files larger than 50 MB (up to 2 GB+) directly using the dockerized scan engines. Copy the file into your local <code>SafeGate/storage/</code> folder and run the following in your terminal:
+              </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div>
+                  <strong style={{ color: "#93c5fd", display: "block", fontSize: "0.82rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>1. Scan with ClamAV</strong>
+                  <code style={{ background: "rgba(0, 0, 0, 0.4)", color: "#e2e8f0", padding: "6px 10px", borderRadius: "6px", display: "block", fontFamily: "monospace", fontSize: "0.8rem", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    docker compose exec backend clamscan /app/storage/{selectedFile?.name || "your_file"}
+                  </code>
+                </div>
+                <div>
+                  <strong style={{ color: "#93c5fd", display: "block", fontSize: "0.82rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>2. Scan with YARA</strong>
+                  <code style={{ background: "rgba(0, 0, 0, 0.4)", color: "#e2e8f0", padding: "6px 10px", borderRadius: "6px", display: "block", fontFamily: "monospace", fontSize: "0.8rem", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    docker compose exec backend yara /app/analyzers/rules.yar /app/storage/{selectedFile?.name || "your_file"}
+                  </code>
+                </div>
+                <div>
+                  <strong style={{ color: "#93c5fd", display: "block", fontSize: "0.82rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>3. Dynamic Sandbox (Python)</strong>
+                  <code style={{ background: "rgba(0, 0, 0, 0.4)", color: "#e2e8f0", padding: "6px 10px", borderRadius: "6px", display: "block", fontFamily: "monospace", fontSize: "0.8rem", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    docker run --rm --network none --memory 2g -v C:\Users\DELL\Downloads\SafeGate\storage:/sandbox python:3.10-slim python /sandbox/{selectedFile?.name || "your_file"}
+                  </code>
+                </div>
+              </div>
+            </div>
+          )}
         </form>
         {uploadResult ? (
           <GeminiAssistant
