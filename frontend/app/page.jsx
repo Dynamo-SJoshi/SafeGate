@@ -1571,28 +1571,8 @@ export default function HomePage() {
         ) : null}
       </section>
 
-      <section className="grid">
-        <article className="panel">
-          <h2>What this frontend does</h2>
-          <ul>
-            <li>Shows the SafeGate landing page</li>
-            <li>Checks the backend health endpoint</li>
-            <li>Lets you paste a download link for analysis</li>
-            <li>Keeps file upload as a fallback</li>
-          </ul>
-        </article>
 
-        <article className="panel">
-          <h2>Next UI milestones</h2>
-          <ul>
-            <li>Show link analysis metadata after submission</li>
-            <li>Scan progress state</li>
-            <li>Result / risk report page</li>
-            <li>Temporary preview screen</li>
-            <li>Browser extension integration later</li>
-          </ul>
-        </article>
-      </section>
+
 
       <footer style={{
         marginTop: "40px",
