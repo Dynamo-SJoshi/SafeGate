@@ -526,6 +526,15 @@ Conditional Local Scan Guidelines for Heavy Files:
   - Added a matching guideline card for fetched remote links exceeding 50 MB.
 - Provides step-by-step instructions (clone, run docker/scripts) directly in the UI so users can scan larger files locally without size restrictions.
 
+2026-06-24 01:27:01 +05:30
+--------------------------
+
+Cloudflare Web Analytics Integration:
+- Configured dynamic visitor tracking via Cloudflare Web Analytics:
+  - Integrated a Next.js `Script` beacon tracker tag into `frontend/app/layout.jsx` that runs when the `NEXT_PUBLIC_CLOUDFLARE_TOKEN` environment variable is defined.
+  - Documented the `NEXT_PUBLIC_CLOUDFLARE_TOKEN` variable in the `render.yaml` template file.
+
+
 
 
 

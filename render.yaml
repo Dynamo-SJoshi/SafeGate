@@ -42,3 +42,6 @@ services:
         sync: false # Must be set to the backend's PUBLIC external URL
       - key: NODE_VERSION
         value: "20"
+      - key: NEXT_PUBLIC_CLOUDFLARE_TOKEN
+        sync: false
+
