@@ -501,7 +501,7 @@ Render Cold Start Stability and Local Launcher:
 - Added a 10-second server-side timeout to backend health checks to prevent API lockup during container cold starts.
 - Disabled form inputs and displayed an overlay loader during backend wake-up stages.
 - Added a manual force-wake action link if the server-side wake-up takes longer than normal.
-- Created `safegate_launcher.html`, a static standalone local landing file for immediate developer access.
+- Created and subsequently removed `safegate_launcher.html` (an ephemeral local developer launcher) as wake-up and connection flows became fully stable.
 
 2026-06-23 03:10:05 +05:30
 --------------------------
@@ -509,6 +509,24 @@ Render Cold Start Stability and Local Launcher:
 Memory Injection Static Signature Checks:
 - Added `memory_injection_apis` rules to YARA scanner rule signatures (`analyzers/rules.yar`).
 - Scans script and binary code blocks for Win32 API sequences associated with fileless shellcode/memory injection (e.g. `VirtualAlloc`, `WriteProcessMemory`, `CreateRemoteThread`).
+
+2026-06-23 04:09:50 +05:30
+--------------------------
+
+Gemini Prompt Payload Truncation and Parser Upgrades:
+- Truncates very long raw text previews in Gemini prompt payloads to prevent token limit errors during analysis explanations.
+- Upgraded the server-side health checks and response parser to handle Markdown wrapping and formatting configurations reliably.
+
+2026-06-23 04:36:47 +05:30
+--------------------------
+
+Conditional Local Scan Guidelines for Heavy Files:
+- Implemented client-side and server-side size threshold guides:
+  - Added a conditional "Local Scan Guide" dashboard card when a direct file upload exceeds the 50 MB host-side storage limit.
+  - Added a matching guideline card for fetched remote links exceeding 50 MB.
+- Provides step-by-step instructions (clone, run docker/scripts) directly in the UI so users can scan larger files locally without size restrictions.
+
+
 
 
 
