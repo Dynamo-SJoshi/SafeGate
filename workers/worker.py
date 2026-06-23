@@ -101,6 +101,7 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
                 candidate_urls=remote_fetch.candidate_urls,
                 client_ip=record.get("client_ip"),
                 static_analysis=record.get("static_analysis") or {},
+                client_location=record.get("client_location"),
                 candidate_details=[
                     {"url": candidate.url, "score": candidate.score, "reasons": candidate.reasons}
                     for candidate in remote_fetch.candidate_details
@@ -141,6 +142,7 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
                 source_state="error",
                 client_ip=record.get("client_ip"),
                 static_analysis={"error": f"Failed to download remote file: {exc}"},
+                client_location=record.get("client_location"),
             )
             return get_upload_record(upload_id)
 
@@ -165,6 +167,7 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
             static_analysis={
                 "error": "Stored file was not found on disk. It may have been cleaned up or expired."
             },
+            client_location=record.get("client_location"),
             candidate_details=record.get("candidate_details"),
         )
         return get_upload_record(upload_id)
@@ -202,6 +205,7 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
             candidate_urls=record.get("candidate_urls"),
             client_ip=record.get("client_ip"),
             static_analysis=static_analysis,
+            client_location=record.get("client_location"),
             candidate_details=record.get("candidate_details"),
         )
         return get_upload_record(upload_id)
@@ -234,6 +238,7 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
             candidate_urls=record.get("candidate_urls"),
             client_ip=record.get("client_ip"),
             static_analysis=static_analysis,
+            client_location=record.get("client_location"),
             candidate_details=record.get("candidate_details"),
         )
         return get_upload_record(upload_id)
@@ -315,6 +320,7 @@ def process_scan_job(upload_id: str) -> dict[str, Any] | None:
         candidate_urls=record.get("candidate_urls"),
         client_ip=record.get("client_ip"),
         static_analysis=static_analysis,
+        client_location=record.get("client_location"),
         candidate_details=record.get("candidate_details"),
     )
     

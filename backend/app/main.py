@@ -32,6 +32,7 @@ from .clamav_scanner import scan_file_with_clamav
 from .yara_scanner import scan_file_with_yara
 from .exif_scanner import extract_metadata_with_exiftool
 from .security import validate_and_normalize_url
+from .geolocation import get_location_from_ip
 
 load_local_env_files()
 
@@ -211,6 +212,7 @@ def get_client_ip(request: Request) -> str:
 async def upload_file(request: Request, file: UploadFile = File(...)):
     upload_id = str(uuid4())
     client_ip = get_client_ip(request)
+    client_location = get_location_from_ip(client_ip)
     try:
         if not file.filename:
             raise HTTPException(status_code=400, detail="Missing filename.")
@@ -224,6 +226,7 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
             content_type=file.content_type or "application/octet-stream",
             source_kind="upload",
             client_ip=client_ip,
+            client_location=client_location,
         )
     finally:
         await file.close()
@@ -233,6 +236,7 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
 def analyze_url(payload: UrlAnalyzeRequest, request: Request):
     upload_id = str(uuid4())
     client_ip = get_client_ip(request)
+    client_location = get_location_from_ip(client_ip)
 
     try:
         normalized_url = validate_and_normalize_url(payload.url)
@@ -262,6 +266,7 @@ def analyze_url(payload: UrlAnalyzeRequest, request: Request):
             source_kind="url",
             source_state="pending_fetch",
             client_ip=client_ip,
+            client_location=client_location,
         )
         scan_queue.enqueue("workers.worker.process_scan_job", upload_id)
     except Exception as exc:
@@ -479,6 +484,7 @@ def preview_zip_file(upload_id: str, file_path: str):
                         client_ip=record.get("client_ip"),
                         static_analysis=parent_static,
                         candidate_details=record.get("candidate_details"),
+                        client_location=record.get("client_location"),
                     )
 
                 return {
@@ -572,6 +578,7 @@ def preview_zip_file(upload_id: str, file_path: str):
                             client_ip=record.get("client_ip"),
                             static_analysis=parent_static,
                             candidate_details=record.get("candidate_details"),
+                            client_location=record.get("client_location"),
                         )
 
             scan_results = {
@@ -687,6 +694,7 @@ def _analyze_and_store_file(
     candidate_details: list[dict[str, object]] | None = None,
     notes: list[str] | None = None,
     client_ip: str | None = None,
+    client_location: str | None = None,
 ) -> dict[str, object]:
     size_bytes = stored_path.stat().st_size
     
@@ -760,6 +768,7 @@ def _analyze_and_store_file(
             client_ip=client_ip,
             static_analysis=static_analysis,
             candidate_details=candidate_details,
+            client_location=client_location,
         )
         # Enqueue the background scanning task if pending
         if analysis_state == "pending":

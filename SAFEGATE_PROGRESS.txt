@@ -535,6 +535,17 @@ Cloudflare Web Analytics Integration:
   - Documented the `NEXT_PUBLIC_CLOUDFLARE_TOKEN` variable in the `render.yaml` template file.
   - Updated the Privacy Policy page (`frontend/app/privacy/page.jsx`) to disclose usage of privacy-friendly Cloudflare Web Analytics.
 
+2026-06-24 02:00:59 +05:30
+--------------------------
+
+IP Geolocation City-Level Database Tracking:
+- Integrated IP-based city geolocation tracking using the `ip-api.com` service:
+  - Added a backend helper module (`backend/app/geolocation.py`) to resolve public client IP addresses to `'City, Region (Country)'` with automated fallback to `'Local Development'` (for local IPs) or `'Unknown Location'` (on lookup failure).
+  - Executed database migrations to add a `client_location` column to the `uploads` table.
+  - Updated API route endpoints `/upload` and `/analyze-url` to resolve client locations during initial request logging.
+  - Configured background worker scans (`workers/worker.py`) to read and propagate existing `client_location` entries across DB updates to preserve visitor location records.
+
+
 
 
 
