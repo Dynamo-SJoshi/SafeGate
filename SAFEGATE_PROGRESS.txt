@@ -533,6 +533,8 @@ Cloudflare Web Analytics Integration:
 - Configured dynamic visitor tracking via Cloudflare Web Analytics:
   - Integrated a Next.js `Script` beacon tracker tag into `frontend/app/layout.jsx` that runs when the `NEXT_PUBLIC_CLOUDFLARE_TOKEN` environment variable is defined.
   - Documented the `NEXT_PUBLIC_CLOUDFLARE_TOKEN` variable in the `render.yaml` template file.
+  - Updated the Privacy Policy page (`frontend/app/privacy/page.jsx`) to disclose usage of privacy-friendly Cloudflare Web Analytics.
+
 
 
 

@@ -40,6 +40,13 @@ export default function PrivacyPage() {
           </p>
         </div>
 
+        <div className="statusCard" style={{ background: "rgba(110, 231, 255, 0.04)", marginTop: "20px" }}>
+          <h2 style={{ fontSize: "1.2rem", margin: "0 0 10px", color: "var(--accent)" }}>4. Third-Party Web Analytics</h2>
+          <p style={{ color: "var(--muted)", lineHeight: "1.6" }}>
+            We use <strong>Cloudflare Web Analytics</strong> to measure website performance and collect anonymous visitor telemetry (such as page views, device types, and country locations). Cloudflare Web Analytics is privacy-focused: it does not use cookies, does not store local browser storage, and does not track individual visitor behaviors across other sites.
+          </p>
+        </div>
+
         <div style={{ marginTop: "32px", display: "flex", gap: "12px" }}>
           <Link href="/" className="ui-btn-legal">
             <strong>Back to Home</strong>
